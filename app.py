@@ -60,6 +60,16 @@ with st.sidebar:
             )
             # Extract the base year from display format
             fav_season = int(fav_season_selected.split('-')[0])
+            
+            fav_season_type = st.radio(
+                "Type",
+                options=["Regular Season", "Playoffs"],
+                index=0,
+                horizontal=True,
+                key="fav_season_type"
+            )
+            fav_is_postseason = (fav_season_type == "Playoffs")
+            
             for fav in favorites:
                 if st.button(f"{fav['player_name']} ({fav['team_abbreviation']})", key=f"fav_{fav['player_id']}"):
                     # Load favorite player
@@ -67,10 +77,11 @@ with st.sidebar:
                     if player:
                         st.session_state.selected_player = player
                         st.session_state.selected_season = fav_season
+                        st.session_state.is_postseason = fav_is_postseason
                         
-                        season_stats = api_client.get_season_stats(player['id'], fav_season)
-                        recent_games = api_client.get_recent_games(player['id'], limit=20, season=fav_season)
-                        career_stats = api_client.get_career_stats(player['id'])
+                        season_stats = api_client.get_season_stats(player['id'], fav_season, postseason=fav_is_postseason)
+                        recent_games = api_client.get_recent_games(player['id'], limit=20, season=fav_season, postseason=fav_is_postseason)
+                        career_stats = api_client.get_career_stats(player['id'], postseason=fav_is_postseason)
                         
                         st.session_state.player_data = {
                             'player': player,
@@ -97,6 +108,16 @@ with st.sidebar:
     )
     # Extract the base year from the display format (e.g., "2024-2025" -> 2024)
     selected_season = int(selected_season_display.split('-')[0])
+    
+    # Season Type selection (Regular Season vs Playoffs)
+    season_type = st.radio(
+        "Season Type",
+        options=["Regular Season", "Playoffs"],
+        index=0,
+        horizontal=True,
+        key="season_type_selector"
+    )
+    is_postseason = (season_type == "Playoffs")
     
     # Initialize search results storage
     if 'search_results' not in st.session_state:
@@ -126,11 +147,12 @@ with st.sidebar:
                     player = player_options[selected_player_name]
                     st.session_state.selected_player = player
                     st.session_state.selected_season = selected_season
+                    st.session_state.is_postseason = is_postseason
                     
                     # Fetch comprehensive player data for selected season
-                    season_stats = api_client.get_season_stats(player['id'], selected_season)
-                    recent_games = api_client.get_recent_games(player['id'], limit=20, season=selected_season)
-                    career_stats = api_client.get_career_stats(player['id'])
+                    season_stats = api_client.get_season_stats(player['id'], selected_season, postseason=is_postseason)
+                    recent_games = api_client.get_recent_games(player['id'], limit=20, season=selected_season, postseason=is_postseason)
+                    career_stats = api_client.get_career_stats(player['id'], postseason=is_postseason)
                     
                     st.session_state.player_data = {
                         'player': player,
@@ -259,6 +281,15 @@ with st.sidebar:
     # Extract the base year from display format
     comp_season = int(comp_season_selected.split('-')[0])
     
+    comp_season_type = st.radio(
+        "Comparison Season Type",
+        options=["Regular Season", "Playoffs"],
+        index=0,
+        horizontal=True,
+        key="comp_season_type"
+    )
+    comp_is_postseason = (comp_season_type == "Playoffs")
+    
     if comparison_query and len(comparison_query) >= 2:
         with st.spinner("Searching players..."):
             comparison_players = api_client.search_players(comparison_query)
@@ -272,10 +303,11 @@ with st.sidebar:
                     comp_player = comparison_players[selected_comp_idx]
                     st.session_state.comparison_player = comp_player
                     st.session_state.comparison_season = comp_season
+                    st.session_state.comp_is_postseason = comp_is_postseason
                     
-                    comp_season_stats = api_client.get_season_stats(comp_player['id'], comp_season)
-                    comp_recent_games = api_client.get_recent_games(comp_player['id'], limit=20, season=comp_season)
-                    comp_career_stats = api_client.get_career_stats(comp_player['id'])
+                    comp_season_stats = api_client.get_season_stats(comp_player['id'], comp_season, postseason=comp_is_postseason)
+                    comp_recent_games = api_client.get_recent_games(comp_player['id'], limit=20, season=comp_season, postseason=comp_is_postseason)
+                    comp_career_stats = api_client.get_career_stats(comp_player['id'], postseason=comp_is_postseason)
                     
                     st.session_state.comparison_data = {
                         'player': comp_player,
@@ -346,10 +378,12 @@ else:
     # Season Statistics with Z-Score Normalization
     display_season = st.session_state.get('selected_season', 2024)
     display_season_formatted = f"{display_season}-{display_season+1}"
+    display_is_postseason = st.session_state.get('is_postseason', False)
+    season_type_label = "Playoffs" if display_is_postseason else "Regular Season"
     
     col_header, col_export = st.columns([3, 1])
     with col_header:
-        st.header(f"📊 Season Statistics ({display_season_formatted})")
+        st.header(f"📊 Season Statistics ({display_season_formatted} {season_type_label})")
     with col_export:
         # Export buttons
         export_format = st.selectbox("Export", ["CSV", "JSON"], key="export_format_main")
