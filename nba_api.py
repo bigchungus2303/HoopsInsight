@@ -41,6 +41,35 @@ class NBAAPIClient:
         
         return {}
     
+    def _filter_played_games(self, games: List[Dict]) -> List[Dict]:
+        """Filter out games where player didn't play (DNP, injured, etc.)"""
+        played_games = []
+        
+        for game in games:
+            min_played = game.get('min', '0')
+            # Parse minutes if it's in MM:SS format
+            if ':' in str(min_played):
+                min_parts = str(min_played).split(':')
+                if len(min_parts) == 2 and min_parts[0].isdigit():
+                    min_value = int(min_parts[0])
+                else:
+                    min_value = 0
+            else:
+                min_value = float(min_played) if min_played and str(min_played).replace('.', '').isdigit() else 0
+            
+            # Include game if player had minutes or any stats
+            has_stats = (
+                min_value > 0 or 
+                game.get('pts', 0) > 0 or 
+                game.get('reb', 0) > 0 or 
+                game.get('ast', 0) > 0
+            )
+            
+            if has_stats:
+                played_games.append(game)
+        
+        return played_games
+    
     def search_players(self, query: str, limit: int = 10) -> List[Dict]:
         """Search for players by name"""
         try:
@@ -115,7 +144,11 @@ class NBAAPIClient:
             # Try cache first with season filter
             cached_games = self.db.get_game_stats(player_id, limit, season=season)
             if cached_games and len(cached_games) >= min(5, limit):
-                return cached_games[:limit]
+                # Filter cached games too - only return games where player actually played
+                filtered_cached = self._filter_played_games(cached_games)
+                if len(filtered_cached) >= min(5, limit):
+                    return filtered_cached[:limit]
+                # If not enough played games in cache, fetch fresh data below
             
             # Fetch from API for specific season - stats endpoint REQUIRES array notation
             # Request MORE games than limit to ensure we get the most recent ones after sorting
@@ -128,14 +161,17 @@ class NBAAPIClient:
             response = self._make_request("stats", params)
             games = response.get('data', [])
             
-            # Sort by date descending to get most recent games first
-            games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
+            # Filter out games where player didn't play (DNP, injured, etc.)
+            played_games = self._filter_played_games(games)
             
-            # Cache ALL games for the season
+            # Sort by date descending to get most recent games first
+            played_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
+            
+            # Cache ALL games (including DNP) for the season
             self.db.cache_game_stats(player_id, games)
             
-            # Return only the requested number of most recent games
-            return games[:limit]
+            # Return only the requested number of most recent PLAYED games
+            return played_games[:limit]
             
         except Exception as e:
             print(f"Error getting recent games: {e}")
