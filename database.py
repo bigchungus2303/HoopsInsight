@@ -5,18 +5,19 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from contextlib import contextmanager
 
+
 class NBADatabase:
     """SQLite database for caching NBA player data and reducing API calls"""
-    
+
     def __init__(self, db_path: str = "nba_cache.db"):
         self.db_path = db_path
         self._init_database()
-    
+
     def _init_database(self):
         """Initialize database schema"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             # Players table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS players (
@@ -33,7 +34,7 @@ class NBADatabase:
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            
+
             # Season stats table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS season_stats (
@@ -52,7 +53,7 @@ class NBADatabase:
                     UNIQUE(player_id, season)
                 )
             """)
-            
+
             # Game stats table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS game_stats (
@@ -71,7 +72,7 @@ class NBADatabase:
                     UNIQUE(player_id, game_id)
                 )
             """)
-            
+
             # League averages cache
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS league_averages (
@@ -93,7 +94,7 @@ class NBADatabase:
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            
+
             # User favorites table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS favorites (
@@ -103,9 +104,9 @@ class NBADatabase:
                     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            
+
             conn.commit()
-    
+
     @contextmanager
     def _get_connection(self):
         """Context manager for database connections"""
@@ -115,44 +116,42 @@ class NBADatabase:
             yield conn
         finally:
             conn.close()
-    
+
     def cache_player(self, player_data: Dict):
         """Cache player information"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO players 
                 (id, first_name, last_name, team_id, team_name, team_abbreviation,
                  position, height_feet, height_inches, weight_pounds, last_updated)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (
-                player_data['id'],
-                player_data.get('first_name'),
-                player_data.get('last_name'),
-                player_data.get('team', {}).get('id'),
-                player_data.get('team', {}).get('full_name'),
-                player_data.get('team', {}).get('abbreviation'),
-                player_data.get('position'),
-                player_data.get('height_feet'),
-                player_data.get('height_inches'),
-                player_data.get('weight_pounds')
-            ))
-            
+            """, (player_data['id'], player_data.get('first_name'),
+                  player_data.get('last_name'), player_data.get(
+                      'team', {}).get('id'), player_data.get(
+                          'team', {}).get('full_name'),
+                  player_data.get('team', {}).get('abbreviation'),
+                  player_data.get('position'), player_data.get('height_feet'),
+                  player_data.get('height_inches'),
+                  player_data.get('weight_pounds')))
+
             conn.commit()
-    
+
     def get_player(self, player_id: int) -> Optional[Dict]:
         """Retrieve cached player data"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 SELECT * FROM players 
                 WHERE id = ? AND last_updated > datetime('now', '-7 days')
-            """, (player_id,))
-            
+            """, (player_id, ))
+
             row = cursor.fetchone()
-            
+
             if row:
                 return {
                     'id': row['id'],
@@ -168,63 +167,59 @@ class NBADatabase:
                     'height_inches': row['height_inches'],
                     'weight_pounds': row['weight_pounds']
                 }
-            
+
             return None
-    
+
     def search_cached_players(self, query: str) -> List[Dict]:
         """Search for players in cache"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             search_pattern = f"%{query}%"
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM players 
                 WHERE (first_name LIKE ? OR last_name LIKE ?)
                 AND last_updated > datetime('now', '-7 days')
                 LIMIT 10
             """, (search_pattern, search_pattern))
-            
+
             rows = cursor.fetchall()
-            
+
             return [self._player_row_to_dict(row) for row in rows]
-    
+
     def cache_season_stats(self, player_id: int, season: int, stats: Dict):
         """Cache season statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO season_stats
                 (player_id, season, games_played, pts, reb, ast, 
                  fg_pct, fg3_pct, ft_pct, min, last_updated)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (
-                player_id, season,
-                stats.get('games_played'),
-                stats.get('pts'),
-                stats.get('reb'),
-                stats.get('ast'),
-                stats.get('fg_pct'),
-                stats.get('fg3_pct'),
-                stats.get('ft_pct'),
-                stats.get('min')
-            ))
-            
+            """, (player_id,
+                  season, stats.get('games_played'), stats.get('pts'),
+                  stats.get('reb'), stats.get('ast'), stats.get('fg_pct'),
+                  stats.get('fg3_pct'), stats.get('ft_pct'), stats.get('min')))
+
             conn.commit()
-    
+
     def get_season_stats(self, player_id: int, season: int) -> Optional[Dict]:
         """Retrieve cached season stats"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 SELECT * FROM season_stats 
                 WHERE player_id = ? AND season = ?
                 AND last_updated > datetime('now', '-1 day')
             """, (player_id, season))
-            
+
             row = cursor.fetchone()
-            
+
             if row:
                 return {
                     'player_id': row['player_id'],
@@ -238,44 +233,42 @@ class NBADatabase:
                     'ft_pct': row['ft_pct'],
                     'min': row['min']
                 }
-            
+
             return None
-    
+
     def cache_game_stats(self, player_id: int, games: List[Dict]):
         """Cache game statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             for game in games:
                 game_data = game.get('game', {})
-                
-                cursor.execute("""
+
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO game_stats
                     (player_id, game_id, game_date, season, pts, reb, ast, 
                      fg_pct, fg3m, min, last_updated)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, (
-                    player_id,
-                    game_data.get('id'),
-                    game_data.get('date'),
-                    game_data.get('season'),
-                    game.get('pts'),
-                    game.get('reb'),
-                    game.get('ast'),
-                    game.get('fg_pct'),
-                    game.get('fg3m'),
-                    game.get('min')
-                ))
-            
+                """,
+                    (player_id, game_data.get('id'), game_data.get('date'),
+                     game_data.get('season'), game.get('pts'), game.get('reb'),
+                     game.get('ast'), game.get('fg_pct'), game.get('fg3m'),
+                     game.get('min')))
+
             conn.commit()
-    
-    def get_game_stats(self, player_id: int, limit: int = 20, season: int = None) -> List[Dict]:
+
+    def get_game_stats(self,
+                       player_id: int,
+                       limit: int = 20,
+                       season: int = None) -> List[Dict]:
         """Retrieve cached game stats"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             if season is not None:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM game_stats 
                     WHERE player_id = ? AND season = ?
                     AND last_updated > datetime('now', '-1 day')
@@ -283,16 +276,17 @@ class NBADatabase:
                     LIMIT ?
                 """, (player_id, season, limit))
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM game_stats 
                     WHERE player_id = ?
                     AND last_updated > datetime('now', '-1 day')
                     ORDER BY game_date DESC
                     LIMIT ?
                 """, (player_id, limit))
-            
+
             rows = cursor.fetchall()
-            
+
             return [{
                 'game': {
                     'id': row['game_id'],
@@ -306,51 +300,43 @@ class NBADatabase:
                 'fg3m': row['fg3m'],
                 'min': row['min']
             } for row in rows]
-    
+
     def cache_league_averages(self, season: int, averages: Dict):
         """Cache league averages"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO league_averages
                 (season, pts, reb, ast, fg_pct, fg3_pct, ft_pct, min,
                  pts_std, reb_std, ast_std, fg_pct_std, fg3_pct_std, ft_pct_std, min_std,
                  last_updated)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (
-                season,
-                averages.get('pts'),
-                averages.get('reb'),
-                averages.get('ast'),
-                averages.get('fg_pct'),
-                averages.get('fg3_pct'),
-                averages.get('ft_pct'),
-                averages.get('min'),
-                averages.get('pts_std'),
-                averages.get('reb_std'),
-                averages.get('ast_std'),
-                averages.get('fg_pct_std'),
-                averages.get('fg3_pct_std'),
-                averages.get('ft_pct_std'),
-                averages.get('min_std')
-            ))
-            
+            """, (season, averages.get('pts'), averages.get('reb'),
+                  averages.get('ast'), averages.get('fg_pct'),
+                  averages.get('fg3_pct'), averages.get('ft_pct'),
+                  averages.get('min'), averages.get('pts_std'),
+                  averages.get('reb_std'), averages.get('ast_std'),
+                  averages.get('fg_pct_std'), averages.get('fg3_pct_std'),
+                  averages.get('ft_pct_std'), averages.get('min_std')))
+
             conn.commit()
-    
+
     def get_league_averages(self, season: int) -> Optional[Dict]:
         """Retrieve cached league averages"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 SELECT * FROM league_averages 
                 WHERE season = ?
                 AND last_updated > datetime('now', '-7 days')
-            """, (season,))
-            
+            """, (season, ))
+
             row = cursor.fetchone()
-            
+
             if row:
                 return {
                     'pts': row['pts'],
@@ -368,59 +354,62 @@ class NBADatabase:
                     'ft_pct_std': row['ft_pct_std'],
                     'min_std': row['min_std']
                 }
-            
+
             return None
-    
+
     def add_favorite(self, player_id: int, player_name: str):
         """Add player to favorites"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO favorites (player_id, player_name)
                 VALUES (?, ?)
             """, (player_id, player_name))
-            
+
             conn.commit()
-    
+
     def remove_favorite(self, player_id: int):
         """Remove player from favorites"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("DELETE FROM favorites WHERE player_id = ?", (player_id,))
-            
+
+            cursor.execute("DELETE FROM favorites WHERE player_id = ?",
+                           (player_id, ))
+
             conn.commit()
-    
+
     def get_favorites(self) -> List[Dict]:
         """Get all favorite players"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             cursor.execute("""
                 SELECT f.player_id, f.player_name, p.team_abbreviation
                 FROM favorites f
                 LEFT JOIN players p ON f.player_id = p.id
                 ORDER BY f.added_date DESC
             """)
-            
+
             rows = cursor.fetchall()
-            
+
             return [{
                 'player_id': row['player_id'],
                 'player_name': row['player_name'],
                 'team_abbreviation': row['team_abbreviation'] or 'N/A'
             } for row in rows]
-    
+
     def is_favorite(self, player_id: int) -> bool:
         """Check if player is in favorites"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("SELECT 1 FROM favorites WHERE player_id = ?", (player_id,))
-            
+
+            cursor.execute("SELECT 1 FROM favorites WHERE player_id = ?",
+                           (player_id, ))
+
             return cursor.fetchone() is not None
-    
+
     def _player_row_to_dict(self, row) -> Dict:
         """Convert player row to dictionary"""
         return {
@@ -437,25 +426,25 @@ class NBADatabase:
             'height_inches': row['height_inches'],
             'weight_pounds': row['weight_pounds']
         }
-    
+
     def clear_old_cache(self, days: int = 30):
         """Clear cache entries older than specified days"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             cursor.execute(f"""
                 DELETE FROM players 
                 WHERE last_updated < datetime('now', '-{days} days')
             """)
-            
+
             cursor.execute(f"""
                 DELETE FROM season_stats 
                 WHERE last_updated < datetime('now', '-{days} days')
             """)
-            
+
             cursor.execute(f"""
                 DELETE FROM game_stats 
                 WHERE last_updated < datetime('now', '-{days} days')
             """)
-            
+
             conn.commit()
