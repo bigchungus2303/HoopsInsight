@@ -9,6 +9,15 @@ The system uses statistical modeling to estimate the likelihood of players maint
 ## Recent Changes
 
 ### October 2025
+- **Playoff vs Regular Season Analysis**: Added season type toggle to analyze playoff and regular season data separately
+  - UI toggle between "Regular Season" and "Playoffs" in all player selectors
+  - Separate cache entries for regular season (postseason=0) and playoffs (postseason=1)
+  - Database migration: Rebuilt season_stats table with UNIQUE(player_id, season, postseason) constraint
+  - Playoff averages calculated from individual games (API's season_averages doesn't support postseason)
+  - Fixed minutes parsing: Converts "MM:SS" format to decimal for both season types
+  - Season headers show type (e.g., "2023-2024 Regular Season" or "2023-2024 Playoffs")
+  - DNP filtering applied to both regular season and playoff data
+
 - **Career Phase Decay Toggle**: Added advanced feature to enable career phase weighting in predictions
   - Toggle in Advanced Settings: "Enable Career Phase Decay"
   - Auto-detects career phase: early (🌱), rising (📈), peak (⭐), late (🌅), unknown (❓)

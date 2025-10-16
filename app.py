@@ -49,7 +49,7 @@ with st.sidebar:
     favorites = db.get_favorites()
     if favorites:
         with st.expander("⭐ Favorites"):
-            fav_season_years = list(range(2025, 2019, -1))
+            fav_season_years = list(range(2024, 2019, -1))
             fav_season_display = {year: f"{year}-{year+1}" for year in fav_season_years}
             
             fav_season_selected = st.selectbox(
@@ -97,7 +97,8 @@ with st.sidebar:
     # Season selection (display as "2024-2025" format)
     current_year = datetime.now().year
     season_year = current_year if datetime.now().month >= 10 else current_year - 1
-    season_years = list(range(2025, 2019, -1))
+    # Default to 2024 season (2024-2025) since 2025 season data not available yet
+    season_years = list(range(2024, 2019, -1))
     season_display = {year: f"{year}-{year+1}" for year in season_years}
     
     selected_season_display = st.selectbox(
@@ -269,7 +270,7 @@ with st.sidebar:
     st.header("Player Comparison")
     comparison_query = st.text_input("Search Comparison Player", placeholder="Enter second player name...")
     
-    comp_season_years = list(range(2025, 2019, -1))
+    comp_season_years = list(range(2024, 2019, -1))
     comp_season_display = {year: f"{year}-{year+1}" for year in comp_season_years}
     
     comp_season_selected = st.selectbox(
