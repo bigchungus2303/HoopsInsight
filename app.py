@@ -49,12 +49,17 @@ with st.sidebar:
     favorites = db.get_favorites()
     if favorites:
         with st.expander("⭐ Favorites"):
-            fav_season = st.selectbox(
+            fav_season_years = list(range(2025, 2019, -1))
+            fav_season_display = {year: f"{year}-{year+1}" for year in fav_season_years}
+            
+            fav_season_selected = st.selectbox(
                 "Season for Favorites", 
-                options=list(range(2025, 2019, -1)),
+                options=[fav_season_display[year] for year in fav_season_years],
                 index=0,
                 key="fav_season_selector"
             )
+            # Extract the base year from display format
+            fav_season = int(fav_season_selected.split('-')[0])
             for fav in favorites:
                 if st.button(f"{fav['player_name']} ({fav['team_abbreviation']})", key=f"fav_{fav['player_id']}"):
                     # Load favorite player
@@ -78,15 +83,20 @@ with st.sidebar:
     # Player search with autocomplete
     search_query = st.text_input("Search Player Name", placeholder="Type player name (e.g., LeBron)...", key="player_search")
     
-    # Season selection
+    # Season selection (display as "2024-2025" format)
     current_year = datetime.now().year
     season_year = current_year if datetime.now().month >= 10 else current_year - 1
-    selected_season = st.selectbox(
+    season_years = list(range(2025, 2019, -1))
+    season_display = {year: f"{year}-{year+1}" for year in season_years}
+    
+    selected_season_display = st.selectbox(
         "Select Season", 
-        options=list(range(2025, 2019, -1)),
+        options=[season_display[year] for year in season_years],
         index=0,
         key="season_selector"
     )
+    # Extract the base year from the display format (e.g., "2024-2025" -> 2024)
+    selected_season = int(selected_season_display.split('-')[0])
     
     # Initialize search results storage
     if 'search_results' not in st.session_state:
@@ -227,12 +237,17 @@ with st.sidebar:
     st.header("Player Comparison")
     comparison_query = st.text_input("Search Comparison Player", placeholder="Enter second player name...")
     
-    comp_season = st.selectbox(
+    comp_season_years = list(range(2025, 2019, -1))
+    comp_season_display = {year: f"{year}-{year+1}" for year in comp_season_years}
+    
+    comp_season_selected = st.selectbox(
         "Comparison Season", 
-        options=list(range(2024, 2019, -1)),
+        options=[comp_season_display[year] for year in comp_season_years],
         index=0,
         key="comp_season_selector"
     )
+    # Extract the base year from display format
+    comp_season = int(comp_season_selected.split('-')[0])
     
     if comparison_query and len(comparison_query) >= 2:
         with st.spinner("Searching players..."):
@@ -320,10 +335,11 @@ else:
     
     # Season Statistics with Z-Score Normalization
     display_season = st.session_state.get('selected_season', 2024)
+    display_season_formatted = f"{display_season}-{display_season+1}"
     
     col_header, col_export = st.columns([3, 1])
     with col_header:
-        st.header(f"📊 Season Statistics ({display_season})")
+        st.header(f"📊 Season Statistics ({display_season_formatted})")
     with col_export:
         # Export buttons
         export_format = st.selectbox("Export", ["CSV", "JSON"], key="export_format_main")
@@ -404,7 +420,7 @@ else:
                      f"Z-Score: {normalized_stats['min_z'][0]:.2f}")
             st.metric("Games Played", f"{safe_float(season_stats['games_played'], 0):.0f}")
     else:
-        st.warning(f"⚠️ No season statistics available for {display_season}. The player may not have played in this season or data is unavailable.")
+        st.warning(f"⚠️ No season statistics available for {display_season_formatted}. The player may not have played in this season or data is unavailable.")
     
     # Recent Game Performance
     st.header("📈 Recent Game Performance")
