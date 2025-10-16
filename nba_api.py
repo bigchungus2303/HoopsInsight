@@ -4,6 +4,7 @@ import os
 from typing import List, Dict, Optional
 import pandas as pd
 from datetime import datetime, timedelta
+from database import NBADatabase
 
 class NBAAPIClient:
     """Client for interacting with the balldontlie.io NBA API"""
@@ -14,6 +15,7 @@ class NBAAPIClient:
         self.headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         self.session = requests.Session()
         self.session.headers.update(self.headers)
+        self.db = NBADatabase()
     
     def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3) -> Dict:
         """Make API request with retry logic"""
@@ -41,12 +43,24 @@ class NBAAPIClient:
     def search_players(self, query: str, limit: int = 10) -> List[Dict]:
         """Search for players by name"""
         try:
+            # Try cache first
+            cached_players = self.db.search_cached_players(query)
+            if cached_players and len(cached_players) >= 3:
+                return cached_players[:limit]
+            
+            # Fetch from API
             params = {
                 'search': query,
                 'per_page': limit
             }
             response = self._make_request("players", params)
-            return response.get('data', [])
+            players = response.get('data', [])
+            
+            # Cache players
+            for player in players:
+                self.db.cache_player(player)
+            
+            return players
         except Exception as e:
             print(f"Error searching players: {e}")
             return []
@@ -63,6 +77,12 @@ class NBAAPIClient:
     def get_season_stats(self, player_id: int, season: int) -> Optional[Dict]:
         """Get season averages for a player"""
         try:
+            # Try cache first
+            cached_stats = self.db.get_season_stats(player_id, season)
+            if cached_stats:
+                return cached_stats
+            
+            # Fetch from API
             params = {
                 'player_ids[]': player_id,
                 'seasons[]': season,
@@ -73,25 +93,34 @@ class NBAAPIClient:
             data = response.get('data', [])
             
             if data:
-                return data[0]  # Return first (should be only) result
+                stats = data[0]
+                # Cache the stats
+                self.db.cache_season_stats(player_id, season, stats)
+                return stats
             return None
             
         except Exception as e:
             print(f"Error getting season stats: {e}")
             return None
     
-    def get_recent_games(self, player_id: int, limit: int = 20) -> List[Dict]:
+    def get_recent_games(self, player_id: int, limit: int = 20, season: int = None) -> List[Dict]:
         """Get recent games for a player"""
         try:
-            # Get games from current season
-            current_year = datetime.now().year
-            season = current_year if datetime.now().month >= 10 else current_year - 1
+            # If no season specified, use current season
+            if season is None:
+                current_year = datetime.now().year
+                season = current_year if datetime.now().month >= 10 else current_year - 1
             
+            # Try cache first with season filter
+            cached_games = self.db.get_game_stats(player_id, limit, season=season)
+            if cached_games and len(cached_games) >= min(5, limit):
+                return cached_games[:limit]
+            
+            # Fetch from API for specific season
             params = {
                 'player_ids[]': player_id,
                 'seasons[]': season,
-                'per_page': limit,
-                'start_date': (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+                'per_page': limit
             }
             
             response = self._make_request("stats", params)
@@ -99,6 +128,9 @@ class NBAAPIClient:
             
             # Sort by date descending
             games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
+            
+            # Cache the games
+            self.db.cache_game_stats(player_id, games)
             
             return games[:limit]
             
@@ -151,6 +183,11 @@ class NBAAPIClient:
     def get_league_averages(self, season: int) -> Dict:
         """Calculate league averages for a given season"""
         try:
+            # Try cache first
+            cached_averages = self.db.get_league_averages(season)
+            if cached_averages:
+                return cached_averages
+            
             # Get all player season averages
             all_players = []
             page = 1
@@ -203,6 +240,9 @@ class NBAAPIClient:
                 'ft_pct_std': df['ft_pct'].std(),
                 'min_std': df['min'].std()
             }
+            
+            # Cache the league averages
+            self.db.cache_league_averages(season, league_averages)
             
             return league_averages
             

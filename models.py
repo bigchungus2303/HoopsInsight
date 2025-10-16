@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 from scipy import stats
+from scipy.stats import beta
 from statistics import StatisticsEngine
 
 class InverseFrequencyModel:
@@ -56,13 +57,34 @@ class InverseFrequencyModel:
                 inverse_probability = 1 - frequency
                 weighted_inverse_probability = 1 - weighted_frequency
                 
+                # Calculate confidence intervals using binomial proportion
+                ci_lower, ci_upper = self._calculate_confidence_interval(
+                    int(np.sum(exceeds_threshold)), n_games, confidence=0.95
+                )
+                
+                # Statistical significance test (binomial test)
+                p_value = self._binomial_test(int(np.sum(exceeds_threshold)), n_games)
+                
+                # Apply Bayesian smoothing for small samples (< 10 games)
+                bayesian_result = None
+                if n_games < 10:
+                    bayesian_result = self.apply_bayesian_smoothing(
+                        int(np.sum(exceeds_threshold)), n_games,
+                        prior_alpha=2.0, prior_beta=2.0  # Mildly informative prior
+                    )
+                
                 results[stat][threshold] = {
                     'frequency': frequency,
                     'inverse_probability': inverse_probability,
                     'weighted_frequency': weighted_frequency,
                     'weighted_inverse_probability': weighted_inverse_probability,
                     'n_games': n_games,
-                    'n_exceeds': int(np.sum(exceeds_threshold))
+                    'n_exceeds': int(np.sum(exceeds_threshold)),
+                    'ci_lower': ci_lower,
+                    'ci_upper': ci_upper,
+                    'p_value': p_value,
+                    'significant': p_value < 0.05,
+                    'bayesian_smoothed': bayesian_result
                 }
         
         return results
@@ -302,6 +324,82 @@ class InverseFrequencyModel:
         weights = weights / weights.sum()
         
         return weights
+    
+    def _calculate_confidence_interval(self, successes: int, trials: int, 
+                                      confidence: float = 0.95) -> Tuple[float, float]:
+        """Calculate confidence interval for binomial proportion using Wilson score interval"""
+        if trials == 0:
+            return (0.0, 0.0)
+        
+        # Use Wilson score interval for better coverage with small samples
+        p = successes / trials
+        z = stats.norm.ppf((1 + confidence) / 2)
+        
+        denominator = 1 + z**2 / trials
+        center = (p + z**2 / (2 * trials)) / denominator
+        margin = z * np.sqrt((p * (1 - p) / trials + z**2 / (4 * trials**2))) / denominator
+        
+        ci_lower = max(0, center - margin)
+        ci_upper = min(1, center + margin)
+        
+        return (ci_lower, ci_upper)
+    
+    def _binomial_test(self, successes: int, trials: int, p0: float = 0.5) -> float:
+        """Perform binomial test for statistical significance"""
+        if trials == 0:
+            return 1.0
+        
+        # Two-tailed binomial test
+        try:
+            p_value = stats.binom_test(successes, trials, p0, alternative='two-sided')
+            return p_value
+        except:
+            return 1.0
+    
+    def apply_bayesian_smoothing(self, successes: int, trials: int, 
+                                 prior_alpha: float = 1.0, prior_beta: float = 1.0) -> Dict:
+        """
+        Apply Bayesian smoothing for probability estimates on small sample sizes
+        Uses Beta-Binomial conjugate prior for robust estimation
+        
+        Args:
+            successes: Number of successful trials (games >= threshold)
+            trials: Total number of trials (total games)
+            prior_alpha: Beta distribution alpha parameter (prior successes)
+            prior_beta: Beta distribution beta parameter (prior failures)
+        
+        Returns:
+            Dictionary with smoothed probability, credible interval, and effective sample size
+        """
+        if trials == 0:
+            return {
+                'smoothed_probability': 0.5,
+                'credible_interval_lower': 0.0,
+                'credible_interval_upper': 1.0,
+                'effective_sample_size': 0
+            }
+        
+        # Posterior parameters using Beta-Binomial conjugate
+        posterior_alpha = prior_alpha + successes
+        posterior_beta = prior_beta + (trials - successes)
+        
+        # Posterior mean (Bayesian estimate)
+        smoothed_prob = posterior_alpha / (posterior_alpha + posterior_beta)
+        
+        # 95% credible interval
+        credible_lower = beta.ppf(0.025, posterior_alpha, posterior_beta)
+        credible_upper = beta.ppf(0.975, posterior_alpha, posterior_beta)
+        
+        # Effective sample size (precision of posterior)
+        effective_n = posterior_alpha + posterior_beta
+        
+        return {
+            'smoothed_probability': smoothed_prob,
+            'credible_interval_lower': credible_lower,
+            'credible_interval_upper': credible_upper,
+            'effective_sample_size': effective_n,
+            'shrinkage_factor': (prior_alpha + prior_beta) / effective_n
+        }
     
     def calculate_comprehensive_regression_model(self, games_df: pd.DataFrame,
                                                season_stats: Dict,

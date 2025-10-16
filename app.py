@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from nba_api import NBAAPIClient
 from statistics import StatisticsEngine
 from models import InverseFrequencyModel
+from export_utils import (export_player_stats_csv, export_player_stats_json,
+                          export_probability_analysis_csv, export_comparison_csv,
+                          export_comparison_json)
+from database import NBADatabase
 
 # Initialize session state
 if 'selected_player' not in st.session_state:
@@ -25,6 +29,7 @@ if 'comparison_data' not in st.session_state:
 api_client = NBAAPIClient()
 stats_engine = StatisticsEngine()
 model = InverseFrequencyModel()
+db = NBADatabase()
 
 st.set_page_config(
     page_title="NBA Performance Predictor",
@@ -40,8 +45,48 @@ st.markdown("*Regression-to-Mean Analysis with Inverse-Frequency Probability Mod
 with st.sidebar:
     st.header("Player Search")
     
+    # Favorites quick access
+    favorites = db.get_favorites()
+    if favorites:
+        with st.expander("⭐ Favorites"):
+            fav_season = st.selectbox(
+                "Season for Favorites", 
+                options=list(range(2024, 2019, -1)),
+                index=0,
+                key="fav_season_selector"
+            )
+            for fav in favorites:
+                if st.button(f"{fav['player_name']} ({fav['team_abbreviation']})", key=f"fav_{fav['player_id']}"):
+                    # Load favorite player
+                    player = api_client.get_player_info(fav['player_id'])
+                    if player:
+                        st.session_state.selected_player = player
+                        st.session_state.selected_season = fav_season
+                        
+                        season_stats = api_client.get_season_stats(player['id'], fav_season)
+                        recent_games = api_client.get_recent_games(player['id'], limit=20, season=fav_season)
+                        career_stats = api_client.get_career_stats(player['id'])
+                        
+                        st.session_state.player_data = {
+                            'player': player,
+                            'season_stats': season_stats,
+                            'recent_games': recent_games,
+                            'career_stats': career_stats
+                        }
+                        st.rerun()
+    
     # Player search
     search_query = st.text_input("Search Player Name", placeholder="Enter player name...")
+    
+    # Season selection
+    current_year = datetime.now().year
+    season_year = current_year if datetime.now().month >= 10 else current_year - 1
+    selected_season = st.selectbox(
+        "Select Season", 
+        options=list(range(2024, 2019, -1)),
+        index=0,
+        key="season_selector"
+    )
     
     if search_query and len(search_query) >= 2:
         with st.spinner("Searching players..."):
@@ -55,10 +100,11 @@ with st.sidebar:
                 with st.spinner("Loading player data..."):
                     player = players[selected_player_idx]
                     st.session_state.selected_player = player
+                    st.session_state.selected_season = selected_season
                     
-                    # Fetch comprehensive player data
-                    season_stats = api_client.get_season_stats(player['id'], 2024)
-                    recent_games = api_client.get_recent_games(player['id'], limit=20)
+                    # Fetch comprehensive player data for selected season
+                    season_stats = api_client.get_season_stats(player['id'], selected_season)
+                    recent_games = api_client.get_recent_games(player['id'], limit=20, season=selected_season)
                     career_stats = api_client.get_career_stats(player['id'])
                     
                     st.session_state.player_data = {
@@ -68,9 +114,105 @@ with st.sidebar:
                         'career_stats': career_stats
                     }
     
+    st.divider()
+    
+    # Advanced Settings
+    with st.expander("⚙️ Advanced Settings"):
+        st.subheader("Custom Thresholds")
+        
+        # Points thresholds
+        pts_thresholds_input = st.text_input(
+            "Points Thresholds (comma-separated)", 
+            value="10,15,20",
+            key="pts_thresholds"
+        )
+        
+        # Rebounds thresholds
+        reb_thresholds_input = st.text_input(
+            "Rebounds Thresholds (comma-separated)", 
+            value="4,6,8,10",
+            key="reb_thresholds"
+        )
+        
+        # Assists thresholds
+        ast_thresholds_input = st.text_input(
+            "Assists Thresholds (comma-separated)", 
+            value="4,6,8,10",
+            key="ast_thresholds"
+        )
+        
+        # 3-pointers thresholds
+        fg3m_thresholds_input = st.text_input(
+            "3-Pointers Thresholds (comma-separated)", 
+            value="2,3,5",
+            key="fg3m_thresholds"
+        )
+        
+        # Alpha (recency weight)
+        alpha_value = st.slider(
+            "Recency Weight (α)", 
+            min_value=0.5, 
+            max_value=1.0, 
+            value=0.85, 
+            step=0.05,
+            help="Higher values give more weight to recent games"
+        )
+        
+        st.divider()
+        st.subheader("Career Phase Decay Parameters")
+        
+        lambda_early = st.slider(
+            "λ Early Career",
+            min_value=0.01,
+            max_value=0.10,
+            value=0.02,
+            step=0.01,
+            help="Lower decay = more weight on recent games for rising players"
+        )
+        
+        lambda_peak = st.slider(
+            "λ Peak Career",
+            min_value=0.01,
+            max_value=0.15,
+            value=0.05,
+            step=0.01,
+            help="Balanced weighting for stable performers"
+        )
+        
+        lambda_late = st.slider(
+            "λ Late Career",
+            min_value=0.01,
+            max_value=0.20,
+            value=0.08,
+            step=0.01,
+            help="Higher decay = stronger regression tendency for declining players"
+        )
+        
+        st.session_state.custom_thresholds = {
+            'pts': [int(x.strip()) for x in pts_thresholds_input.split(',') if x.strip().isdigit()],
+            'reb': [int(x.strip()) for x in reb_thresholds_input.split(',') if x.strip().isdigit()],
+            'ast': [int(x.strip()) for x in ast_thresholds_input.split(',') if x.strip().isdigit()],
+            'fg3m': [int(x.strip()) for x in fg3m_thresholds_input.split(',') if x.strip().isdigit()]
+        }
+        st.session_state.alpha = alpha_value
+        st.session_state.lambda_params = {
+            'early': lambda_early,
+            'peak': lambda_peak,
+            'late': lambda_late
+        }
+    
+    st.divider()
+    
     # Comparison player search
     st.header("Player Comparison")
     comparison_query = st.text_input("Search Comparison Player", placeholder="Enter second player name...")
+    
+    comp_season = st.selectbox(
+        "Comparison Season", 
+        options=list(range(2024, 2019, -1)),
+        index=0,
+        key="comp_season_selector"
+    )
     
     if comparison_query and len(comparison_query) >= 2:
         with st.spinner("Searching players..."):
@@ -84,9 +226,10 @@ with st.sidebar:
                 with st.spinner("Loading comparison data..."):
                     comp_player = comparison_players[selected_comp_idx]
                     st.session_state.comparison_player = comp_player
+                    st.session_state.comparison_season = comp_season
                     
-                    comp_season_stats = api_client.get_season_stats(comp_player['id'], 2024)
-                    comp_recent_games = api_client.get_recent_games(comp_player['id'], limit=20)
+                    comp_season_stats = api_client.get_season_stats(comp_player['id'], comp_season)
+                    comp_recent_games = api_client.get_recent_games(comp_player['id'], limit=20, season=comp_season)
                     comp_career_stats = api_client.get_career_stats(comp_player['id'])
                     
                     st.session_state.comparison_data = {
@@ -132,19 +275,58 @@ else:
         st.write(f"**Weight**: {player['weight_pounds']} lbs" if player['weight_pounds'] else "Weight: N/A")
     
     with col3:
-        if st.button("Clear Selection"):
-            st.session_state.selected_player = None
-            st.session_state.player_data = None
-            st.rerun()
+        # Favorites and export buttons
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            is_favorite = db.is_favorite(player['id'])
+            if is_favorite:
+                if st.button("❤️ Remove Favorite"):
+                    db.remove_favorite(player['id'])
+                    st.rerun()
+            else:
+                if st.button("🤍 Add Favorite"):
+                    db.add_favorite(player['id'], f"{player['first_name']} {player['last_name']}")
+                    st.rerun()
+        
+        with col_b:
+            if st.button("Clear Selection"):
+                st.session_state.selected_player = None
+                st.session_state.player_data = None
+                st.rerun()
     
     st.divider()
     
     # Season Statistics with Z-Score Normalization
-    st.header("📊 Season Statistics (2024)")
+    display_season = st.session_state.get('selected_season', 2024)
+    
+    col_header, col_export = st.columns([3, 1])
+    with col_header:
+        st.header(f"📊 Season Statistics ({display_season})")
+    with col_export:
+        # Export buttons
+        export_format = st.selectbox("Export", ["CSV", "JSON"], key="export_format_main")
+        if st.button("📥 Export Data", key="export_main"):
+            if export_format == "CSV":
+                csv_data = export_player_stats_csv(player, season_stats, recent_games)
+                st.download_button(
+                    label="Download CSV",
+                    data=csv_data,
+                    file_name=f"{player['last_name']}_{display_season}_stats.csv",
+                    mime="text/csv"
+                )
+            else:
+                json_data = export_player_stats_json(player, season_stats, recent_games)
+                st.download_button(
+                    label="Download JSON",
+                    data=json_data,
+                    file_name=f"{player['last_name']}_{display_season}_stats.json",
+                    mime="application/json"
+                )
     
     if season_stats:
         # Calculate league averages for z-score normalization
-        league_averages = stats_engine.get_league_averages(2024)
+        league_averages = stats_engine.get_league_averages(display_season)
         
         stats_df = pd.DataFrame([season_stats])
         normalized_stats = stats_engine.calculate_z_scores(stats_df, league_averages)
@@ -222,13 +404,15 @@ else:
     st.header("🎯 Regression-to-Mean Analysis")
     
     if recent_games and season_stats:
-        # Define thresholds for analysis
-        thresholds = {
-            'pts': [10, 15, 20, 25, 30],
-            'reb': [4, 6, 8, 10, 12],
-            'ast': [4, 6, 8, 10, 12],
-            'fg3m': [2, 3, 5, 7]
-        }
+        # Get custom thresholds from session state or use defaults
+        thresholds = st.session_state.get('custom_thresholds', {
+            'pts': [10, 15, 20],
+            'reb': [4, 6, 8, 10],
+            'ast': [4, 6, 8, 10],
+            'fg3m': [2, 3, 5]
+        })
+        
+        alpha = st.session_state.get('alpha', 0.85)
         
         # Calculate dynamic thresholds based on player's season stats
         dynamic_thresholds = stats_engine.calculate_dynamic_thresholds(season_stats)
@@ -240,7 +424,7 @@ else:
             
             games_df = pd.DataFrame(recent_games)
             probability_results = model.calculate_inverse_frequency_probabilities(
-                games_df, thresholds, alpha=0.85
+                games_df, thresholds, alpha=alpha
             )
             
             # Create grouped bar chart
@@ -305,15 +489,32 @@ else:
             
             # Calculate probabilities for dynamic thresholds
             dynamic_prob_results = model.calculate_dynamic_threshold_probabilities(
-                games_df, dynamic_thresholds, alpha=0.85
+                games_df, dynamic_thresholds, alpha=alpha
             )
             
             st.write("**Cool-off Probabilities at Dynamic Thresholds:**")
+            
+            # Check if we have small sample size
+            n_games = games_df.shape[0] if not games_df.empty else 0
+            if n_games < 10:
+                st.info(f"ℹ️ Small sample size ({n_games} games) - Bayesian smoothing applied for robust estimates")
+            
             for stat in ['pts', 'reb', 'ast']:
                 if stat in dynamic_prob_results:
                     st.write(f"**{stat.upper()}:**")
                     for threshold, data in dynamic_prob_results[stat].items():
-                        st.write(f"  - {threshold}: {data['inverse_probability']:.3f}")
+                        # Display Bayesian smoothed estimate if available
+                        if data.get('bayesian_smoothed'):
+                            bayes = data['bayesian_smoothed']
+                            smoothed_inv_prob = 1 - bayes['smoothed_probability']
+                            credible_int = f"[{1-bayes['credible_interval_upper']:.2f}, {1-bayes['credible_interval_lower']:.2f}]"
+                            st.write(f"  - {threshold}: {smoothed_inv_prob:.3f} (Bayesian CI: {credible_int})")
+                        else:
+                            ci_display = ""
+                            if 'ci_lower' in data and 'ci_upper' in data:
+                                ci_display = f" (95% CI: [{data['ci_lower']:.2f}, {data['ci_upper']:.2f}])"
+                            sig_marker = " *" if data.get('significant', False) else ""
+                            st.write(f"  - {threshold}: {data['inverse_probability']:.3f}{ci_display}{sig_marker}")
     
     # Career Phase and Fatigue Analysis
     st.header("⚡ Career Phase & Fatigue Analysis")

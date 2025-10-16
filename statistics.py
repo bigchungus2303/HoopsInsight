@@ -116,17 +116,26 @@ class StatisticsEngine:
         else:
             return "peak"
     
-    def calculate_career_phase_weights(self, career_phase: str, num_games: int) -> np.ndarray:
+    def calculate_career_phase_weights(self, career_phase: str, num_games: int, lambda_params: dict = None) -> np.ndarray:
         """Calculate exponential decay weights based on career phase"""
         
         # Lambda values for different career phases
-        lambda_values = {
-            "early": 0.02,    # Less decay - recent performance more indicative
-            "rising": 0.03,   # Moderate decay
-            "peak": 0.05,     # Balanced weighting
-            "late": 0.08,     # More decay - regression more likely
-            "unknown": 0.04   # Default moderate decay
-        }
+        if lambda_params:
+            lambda_values = {
+                "early": lambda_params.get('early', 0.02),
+                "rising": lambda_params.get('early', 0.02),
+                "peak": lambda_params.get('peak', 0.05),
+                "late": lambda_params.get('late', 0.08),
+                "unknown": lambda_params.get('peak', 0.05)
+            }
+        else:
+            lambda_values = {
+                "early": 0.02,    # Less decay - recent performance more indicative
+                "rising": 0.03,   # Moderate decay
+                "peak": 0.05,     # Balanced weighting
+                "late": 0.08,     # More decay - regression more likely
+                "unknown": 0.04   # Default moderate decay
+            }
         
         lambda_val = lambda_values.get(career_phase, 0.04)
         
