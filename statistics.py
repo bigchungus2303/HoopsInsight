@@ -43,11 +43,14 @@ class StatisticsEngine:
         
         for stat in stats_to_normalize:
             if stat in player_stats.columns and f'{stat}_std' in league_averages:
+                # Convert to numeric to handle string values from API
+                result[stat] = pd.to_numeric(result[stat], errors='coerce')
+                
                 league_mean = league_averages[stat]
                 league_std = league_averages[f'{stat}_std']
                 
                 if league_std > 0:
-                    result[f'{stat}_z'] = (player_stats[stat] - league_mean) / league_std
+                    result[f'{stat}_z'] = (result[stat] - league_mean) / league_std
                 else:
                     result[f'{stat}_z'] = 0.0
         

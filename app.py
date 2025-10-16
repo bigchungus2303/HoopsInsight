@@ -352,30 +352,37 @@ else:
         stats_df = pd.DataFrame([season_stats])
         normalized_stats = stats_engine.calculate_z_scores(stats_df, league_averages)
         
+        # Helper function to safely convert to float
+        def safe_float(value, default=0.0):
+            try:
+                return float(value) if value is not None else default
+            except (ValueError, TypeError):
+                return default
+        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Points per Game", f"{season_stats['pts']:.1f}", 
+            st.metric("Points per Game", f"{safe_float(season_stats['pts']):.1f}", 
                      f"Z-Score: {normalized_stats['pts_z'][0]:.2f}")
-            st.metric("Field Goal %", f"{season_stats['fg_pct']:.3f}", 
+            st.metric("Field Goal %", f"{safe_float(season_stats['fg_pct']):.3f}", 
                      f"Z-Score: {normalized_stats['fg_pct_z'][0]:.2f}")
         
         with col2:
-            st.metric("Rebounds per Game", f"{season_stats['reb']:.1f}",
+            st.metric("Rebounds per Game", f"{safe_float(season_stats['reb']):.1f}",
                      f"Z-Score: {normalized_stats['reb_z'][0]:.2f}")
-            st.metric("3-Point %", f"{season_stats['fg3_pct']:.3f}",
+            st.metric("3-Point %", f"{safe_float(season_stats['fg3_pct']):.3f}",
                      f"Z-Score: {normalized_stats['fg3_pct_z'][0]:.2f}")
         
         with col3:
-            st.metric("Assists per Game", f"{season_stats['ast']:.1f}",
+            st.metric("Assists per Game", f"{safe_float(season_stats['ast']):.1f}",
                      f"Z-Score: {normalized_stats['ast_z'][0]:.2f}")
-            st.metric("Free Throw %", f"{season_stats['ft_pct']:.3f}",
+            st.metric("Free Throw %", f"{safe_float(season_stats['ft_pct']):.3f}",
                      f"Z-Score: {normalized_stats['ft_pct_z'][0]:.2f}")
         
         with col4:
-            st.metric("Minutes per Game", f"{season_stats['min']:.1f}",
+            st.metric("Minutes per Game", f"{safe_float(season_stats['min']):.1f}",
                      f"Z-Score: {normalized_stats['min_z'][0]:.2f}")
-            st.metric("Games Played", f"{season_stats['games_played']}")
+            st.metric("Games Played", f"{safe_float(season_stats['games_played'], 0):.0f}")
     else:
         st.warning(f"⚠️ No season statistics available for {display_season}. The player may not have played in this season or data is unavailable.")
     

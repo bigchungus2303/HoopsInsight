@@ -83,24 +83,20 @@ class NBAAPIClient:
             if cached_stats:
                 return cached_stats
             
-            # Fetch from NEW NBA API format with category path
-            url = f"{self.nba_base_url}/season_averages/general"
+            # Use old v1 API with SINGULAR parameters
             params = {
-                'season': season,
-                'season_type': 'regular',
-                'type': 'base',
-                'player_ids[]': player_id,
-                'per_page': 100
+                'player_id': player_id,  # Singular!
+                'season': season          # Singular!
             }
             
-            response = self.session.get(url, params=params, timeout=10)
-            if response.status_code == 200:
-                data = response.json().get('data', [])
-                if data:
-                    stats = data[0]
-                    # Cache the stats
-                    self.db.cache_season_stats(player_id, season, stats)
-                    return stats
+            response = self._make_request("season_averages", params)
+            data = response.get('data', [])
+            
+            if data:
+                stats = data[0]
+                # Cache the stats
+                self.db.cache_season_stats(player_id, season, stats)
+                return stats
             
             return None
             
@@ -149,23 +145,18 @@ class NBAAPIClient:
         try:
             all_seasons = []
             
-            # Get season averages for recent years (2020-2025) using new NBA API format
+            # Get season averages for recent years (2020-2025) using old v1 API with SINGULAR parameters
             for season in range(2020, 2026):
-                url = f"{self.nba_base_url}/season_averages/general"
                 params = {
-                    'season': season,
-                    'season_type': 'regular',
-                    'type': 'base',
-                    'player_ids[]': player_id,
-                    'per_page': 100
+                    'player_id': player_id,  # Singular!
+                    'season': season          # Singular!
                 }
                 
                 try:
-                    response = self.session.get(url, params=params, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json().get('data', [])
-                        if data:
-                            all_seasons.extend(data)
+                    response = self._make_request("season_averages", params)
+                    data = response.get('data', [])
+                    if data:
+                        all_seasons.extend(data)
                 except:
                     pass  # Skip seasons with no data
                 
