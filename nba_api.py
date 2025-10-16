@@ -22,6 +22,10 @@ class NBAAPIClient:
         """Make API request with retry logic"""
         url = f"{self.base_url}/{endpoint}"
         
+        # Convert boolean values to lowercase strings for API compatibility
+        if params:
+            params = {k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()}
+        
         for attempt in range(max_retries):
             try:
                 response = self.session.get(url, params=params, timeout=10)
@@ -112,23 +116,91 @@ class NBAAPIClient:
             if cached_stats:
                 return cached_stats
             
-            # Use old v1 API with SINGULAR parameters
-            params = {
-                'player_id': player_id,  # Singular!
-                'season': season,         # Singular!
-                'postseason': postseason  # Boolean for playoff vs regular season
-            }
-            
-            response = self._make_request("season_averages", params)
-            data = response.get('data', [])
-            
-            if data:
-                stats = data[0]
-                # Cache the stats
+            # For playoffs, the season_averages endpoint doesn't support postseason parameter
+            # We need to calculate averages from individual playoff games
+            if postseason:
+                # Get all playoff games for the season
+                playoff_games = self.get_recent_games(player_id, limit=100, season=season, postseason=True)
+                
+                if not playoff_games:
+                    return None
+                
+                # Calculate averages from playoff games
+                # Helper to parse minutes from MM:SS format to decimal
+                def parse_minutes(min_str):
+                    if not min_str:
+                        return 0.0
+                    if isinstance(min_str, (int, float)):
+                        return float(min_str)
+                    if ':' in str(min_str):
+                        parts = str(min_str).split(':')
+                        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                            return int(parts[0]) + int(parts[1]) / 60.0
+                    try:
+                        return float(min_str)
+                    except:
+                        return 0.0
+                
+                # Helper to safely convert and calculate mean
+                def safe_mean(values):
+                    try:
+                        nums = [float(v) if v is not None else 0.0 for v in values]
+                        return sum(nums) / len(nums) if nums else 0.0
+                    except:
+                        return 0.0
+                
+                stats = {
+                    'player_id': player_id,
+                    'season': season,
+                    'games_played': len(playoff_games),
+                    'pts': safe_mean([g.get('pts', 0) for g in playoff_games]),
+                    'reb': safe_mean([g.get('reb', 0) for g in playoff_games]),
+                    'ast': safe_mean([g.get('ast', 0) for g in playoff_games]),
+                    'fg_pct': safe_mean([g.get('fg_pct', 0) for g in playoff_games]),
+                    'fg3_pct': safe_mean([g.get('fg3_pct', 0) for g in playoff_games]),
+                    'ft_pct': safe_mean([g.get('ft_pct', 0) for g in playoff_games]),
+                    'min': safe_mean([parse_minutes(g.get('min', 0)) for g in playoff_games])
+                }
+                
+                # Cache the calculated stats
                 self.db.cache_season_stats(player_id, season, stats, postseason=postseason)
                 return stats
-            
-            return None
+            else:
+                # For regular season, use the season_averages endpoint
+                params = {
+                    'player_id': player_id,  # Singular!
+                    'season': season          # Singular!
+                }
+                
+                response = self._make_request("season_averages", params)
+                data = response.get('data', [])
+                
+                if data:
+                    stats = data[0]
+                    # Parse minutes from MM:SS format to decimal
+                    def parse_minutes(min_str):
+                        if not min_str:
+                            return 0.0
+                        if isinstance(min_str, (int, float)):
+                            return float(min_str)
+                        if ':' in str(min_str):
+                            parts = str(min_str).split(':')
+                            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                                return int(parts[0]) + int(parts[1]) / 60.0
+                        try:
+                            return float(min_str)
+                        except:
+                            return 0.0
+                    
+                    # Convert minutes to float before caching
+                    if 'min' in stats:
+                        stats['min'] = parse_minutes(stats['min'])
+                    
+                    # Cache the stats
+                    self.db.cache_season_stats(player_id, season, stats, postseason=postseason)
+                    return stats
+                
+                return None
             
         except Exception as e:
             print(f"Error getting season stats: {e}")

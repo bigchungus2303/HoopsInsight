@@ -107,6 +107,47 @@ class NBADatabase:
                 )
             """)
 
+            # Migration: Rebuild season_stats table with correct UNIQUE constraint
+            cursor.execute("PRAGMA table_info(season_stats)")
+            season_stats_columns = [col[1] for col in cursor.fetchall()]
+            if 'postseason' not in season_stats_columns:
+                # Create temp table with new schema
+                cursor.execute("""
+                    CREATE TABLE season_stats_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        player_id INTEGER,
+                        season INTEGER,
+                        postseason INTEGER DEFAULT 0,
+                        games_played INTEGER,
+                        pts REAL,
+                        reb REAL,
+                        ast REAL,
+                        fg_pct REAL,
+                        fg3_pct REAL,
+                        ft_pct REAL,
+                        min REAL,
+                        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(player_id, season, postseason)
+                    )
+                """)
+                # Copy existing data (all regular season, postseason=0)
+                cursor.execute("""
+                    INSERT INTO season_stats_new (id, player_id, season, postseason, games_played, 
+                                                   pts, reb, ast, fg_pct, fg3_pct, ft_pct, min, last_updated)
+                    SELECT id, player_id, season, 0, games_played, pts, reb, ast, 
+                           fg_pct, fg3_pct, ft_pct, min, last_updated
+                    FROM season_stats
+                """)
+                # Drop old table and rename new one
+                cursor.execute("DROP TABLE season_stats")
+                cursor.execute("ALTER TABLE season_stats_new RENAME TO season_stats")
+            
+            # Migration: Rebuild game_stats table with correct UNIQUE constraint
+            cursor.execute("PRAGMA table_info(game_stats)")
+            game_stats_columns = [col[1] for col in cursor.fetchall()]
+            if 'postseason' not in game_stats_columns:
+                cursor.execute("ALTER TABLE game_stats ADD COLUMN postseason INTEGER DEFAULT 0")
+
             conn.commit()
 
     @contextmanager
