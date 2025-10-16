@@ -11,8 +11,9 @@ class NBAAPIClient:
     
     def __init__(self):
         self.base_url = "https://api.balldontlie.io/v1"
+        self.nba_base_url = "https://api.balldontlie.io/nba/v1"  # New NBA API format
         self.api_key = os.getenv("NBA_API_KEY", "")  # API key from environment
-        self.headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        self.headers = {"Authorization": self.api_key} if self.api_key else {}  # Direct API key, not Bearer
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         self.db = NBADatabase()
@@ -82,21 +83,25 @@ class NBAAPIClient:
             if cached_stats:
                 return cached_stats
             
-            # Fetch from API
+            # Fetch from NEW NBA API format with category path
+            url = f"{self.nba_base_url}/season_averages/general"
             params = {
+                'season': season,
+                'season_type': 'regular',
+                'type': 'base',
                 'player_ids[]': player_id,
-                'seasons[]': season,
                 'per_page': 100
             }
             
-            response = self._make_request("season_averages", params)
-            data = response.get('data', [])
+            response = self.session.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json().get('data', [])
+                if data:
+                    stats = data[0]
+                    # Cache the stats
+                    self.db.cache_season_stats(player_id, season, stats)
+                    return stats
             
-            if data:
-                stats = data[0]
-                # Cache the stats
-                self.db.cache_season_stats(player_id, season, stats)
-                return stats
             return None
             
         except Exception as e:
@@ -120,6 +125,7 @@ class NBAAPIClient:
             params = {
                 'player_ids[]': player_id,
                 'seasons[]': season,
+                'season_types[]': 'regular',
                 'per_page': limit
             }
             
@@ -143,19 +149,25 @@ class NBAAPIClient:
         try:
             all_seasons = []
             
-            # Get season averages for recent years (2020-2024)
+            # Get season averages for recent years (2020-2024) using new NBA API format
             for season in range(2020, 2025):
+                url = f"{self.nba_base_url}/season_averages/general"
                 params = {
+                    'season': season,
+                    'season_type': 'regular',
+                    'type': 'base',
                     'player_ids[]': player_id,
-                    'seasons[]': season,
                     'per_page': 100
                 }
                 
-                response = self._make_request("season_averages", params)
-                data = response.get('data', [])
-                
-                if data:
-                    all_seasons.extend(data)
+                try:
+                    response = self.session.get(url, params=params, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json().get('data', [])
+                        if data:
+                            all_seasons.extend(data)
+                except:
+                    pass  # Skip seasons with no data
                 
                 time.sleep(0.1)  # Rate limiting
             

@@ -272,7 +272,8 @@ else:
         else:
             height = "N/A"
         st.write(f"**Height**: {height}")
-        st.write(f"**Weight**: {player['weight_pounds']} lbs" if player['weight_pounds'] else "Weight: N/A")
+        weight = player.get('weight_pounds')
+        st.write(f"**Weight**: {weight} lbs" if weight else "**Weight**: N/A")
     
     with col3:
         # Favorites and export buttons
@@ -355,12 +356,28 @@ else:
             st.metric("Minutes per Game", f"{season_stats['min']:.1f}",
                      f"Z-Score: {normalized_stats['min_z'][0]:.2f}")
             st.metric("Games Played", f"{season_stats['games_played']}")
+    else:
+        st.warning(f"⚠️ No season statistics available for {display_season}. The player may not have played in this season or data is unavailable.")
     
     # Recent Game Performance
     st.header("📈 Recent Game Performance")
     
     if recent_games and len(recent_games) > 0:
-        games_df = pd.DataFrame(recent_games)
+        # Extract nested game data and flatten structure
+        flattened_games = []
+        for game in recent_games:
+            flat_game = {
+                'date': game.get('game', {}).get('date'),
+                'pts': game.get('pts'),
+                'reb': game.get('reb'),
+                'ast': game.get('ast'),
+                'fg_pct': game.get('fg_pct'),
+                'fg3m': game.get('fg3m'),
+                'min': game.get('min')
+            }
+            flattened_games.append(flat_game)
+        
+        games_df = pd.DataFrame(flattened_games)
         games_df['date'] = pd.to_datetime(games_df['date'])
         games_df = games_df.sort_values('date').tail(10)  # Last 10 games
         
@@ -525,7 +542,18 @@ else:
         with col1:
             st.subheader("Fatigue/Load Curve")
             
-            games_df = pd.DataFrame(recent_games)
+            # Flatten games data
+            flattened_fatigue_games = []
+            for game in recent_games:
+                flat_game = {
+                    'date': game.get('game', {}).get('date'),
+                    'pts': game.get('pts'),
+                    'min': game.get('min')
+                }
+                flattened_fatigue_games.append(flat_game)
+            
+            games_df = pd.DataFrame(flattened_fatigue_games)
+            games_df['date'] = pd.to_datetime(games_df['date'])
             games_df = games_df.sort_values('date')
             
             # Calculate rolling averages
