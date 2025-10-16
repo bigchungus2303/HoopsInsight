@@ -43,8 +43,12 @@ class StatisticsEngine:
         
         for stat in stats_to_normalize:
             if stat in player_stats.columns and f'{stat}_std' in league_averages:
-                # Convert to numeric to handle string values from API
-                result[stat] = pd.to_numeric(result[stat], errors='coerce')
+                # Special handling for minutes field which comes in MM:SS format
+                if stat == 'min':
+                    result[stat] = result[stat].apply(lambda x: self._parse_minutes(x))
+                else:
+                    # Convert to numeric to handle string values from API
+                    result[stat] = pd.to_numeric(result[stat], errors='coerce')
                 
                 league_mean = league_averages[stat]
                 league_std = league_averages[f'{stat}_std']
@@ -55,6 +59,26 @@ class StatisticsEngine:
                     result[f'{stat}_z'] = 0.0
         
         return result
+    
+    def _parse_minutes(self, min_value):
+        """Parse minutes from MM:SS format to decimal"""
+        if not min_value:
+            return 0.0
+        try:
+            # If already a number, return it
+            return float(min_value)
+        except (ValueError, TypeError):
+            pass
+        try:
+            # Parse MM:SS format
+            if isinstance(min_value, str) and ':' in min_value:
+                parts = min_value.split(':')
+                minutes = int(parts[0])
+                seconds = int(parts[1])
+                return minutes + (seconds / 60.0)
+            return 0.0
+        except:
+            return 0.0
     
     def calculate_dynamic_thresholds(self, season_stats: Dict) -> Dict:
         """Calculate dynamic thresholds based on player's mean and std deviation"""

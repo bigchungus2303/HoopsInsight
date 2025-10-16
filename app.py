@@ -359,6 +359,26 @@ else:
             except (ValueError, TypeError):
                 return default
         
+        # Helper function to convert MM:SS format to decimal minutes
+        def parse_minutes(min_str):
+            if not min_str:
+                return 0.0
+            try:
+                # If already a number, return it
+                return float(min_str)
+            except (ValueError, TypeError):
+                pass
+            try:
+                # Parse MM:SS format
+                if isinstance(min_str, str) and ':' in min_str:
+                    parts = min_str.split(':')
+                    minutes = int(parts[0])
+                    seconds = int(parts[1])
+                    return minutes + (seconds / 60.0)
+                return 0.0
+            except:
+                return 0.0
+        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -380,7 +400,7 @@ else:
                      f"Z-Score: {normalized_stats['ft_pct_z'][0]:.2f}")
         
         with col4:
-            st.metric("Minutes per Game", f"{safe_float(season_stats['min']):.1f}",
+            st.metric("Minutes per Game", f"{parse_minutes(season_stats['min']):.1f}",
                      f"Z-Score: {normalized_stats['min_z'][0]:.2f}")
             st.metric("Games Played", f"{safe_float(season_stats['games_played'], 0):.0f}")
     else:
@@ -406,6 +426,12 @@ else:
         
         games_df = pd.DataFrame(flattened_games)
         games_df['date'] = pd.to_datetime(games_df['date'])
+        
+        # Convert all numeric columns to float to avoid NaN plotting errors
+        numeric_cols = ['pts', 'reb', 'ast', 'fg_pct', 'fg3m', 'min']
+        for col in numeric_cols:
+            games_df[col] = pd.to_numeric(games_df[col], errors='coerce')
+        
         games_df = games_df.sort_values('date').tail(10)  # Last 10 games
         
         # Create line chart for recent performance
@@ -428,12 +454,12 @@ else:
                                 mode='lines+markers', name='Minutes', line=dict(color='#d62728')),
                      row=2, col=2)
         
-        # Add season averages as horizontal lines
+        # Add season averages as horizontal lines (convert to float, parse minutes from MM:SS)
         if season_stats:
-            fig.add_hline(y=season_stats['pts'], line_dash="dash", line_color="gray", row=1, col=1)
-            fig.add_hline(y=season_stats['reb'], line_dash="dash", line_color="gray", row=1, col=2)
-            fig.add_hline(y=season_stats['ast'], line_dash="dash", line_color="gray", row=2, col=1)
-            fig.add_hline(y=season_stats['min'], line_dash="dash", line_color="gray", row=2, col=2)
+            fig.add_hline(y=safe_float(season_stats['pts']), line_dash="dash", line_color="gray", row=1, col=1)
+            fig.add_hline(y=safe_float(season_stats['reb']), line_dash="dash", line_color="gray", row=1, col=2)
+            fig.add_hline(y=safe_float(season_stats['ast']), line_dash="dash", line_color="gray", row=2, col=1)
+            fig.add_hline(y=parse_minutes(season_stats['min']), line_dash="dash", line_color="gray", row=2, col=2)
         
         fig.update_layout(height=500, showlegend=False, title_text="Last 10 Games (Dashed lines = Season Average)")
         st.plotly_chart(fig, use_container_width=True)

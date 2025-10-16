@@ -118,21 +118,23 @@ class NBAAPIClient:
                 return cached_games[:limit]
             
             # Fetch from API for specific season - stats endpoint REQUIRES array notation
+            # Request MORE games than limit to ensure we get the most recent ones after sorting
             params = {
                 'player_ids[]': player_id,     # Array notation required!
                 'seasons[]': season,           # Array notation required!
-                'per_page': limit
+                'per_page': 100  # Get up to 100 games to ensure we capture the full season
             }
             
             response = self._make_request("stats", params)
             games = response.get('data', [])
             
-            # Sort by date descending
+            # Sort by date descending to get most recent games first
             games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
             
-            # Cache the games
+            # Cache ALL games for the season
             self.db.cache_game_stats(player_id, games)
             
+            # Return only the requested number of most recent games
             return games[:limit]
             
         except Exception as e:
