@@ -41,6 +41,7 @@ class NBADatabase:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     player_id INTEGER,
                     season INTEGER,
+                    postseason INTEGER DEFAULT 0,
                     games_played INTEGER,
                     pts REAL,
                     reb REAL,
@@ -50,7 +51,7 @@ class NBADatabase:
                     ft_pct REAL,
                     min REAL,
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(player_id, season)
+                    UNIQUE(player_id, season, postseason)
                 )
             """)
 
@@ -62,6 +63,7 @@ class NBADatabase:
                     game_id INTEGER,
                     game_date TEXT,
                     season INTEGER,
+                    postseason INTEGER DEFAULT 0,
                     pts REAL,
                     reb REAL,
                     ast REAL,
@@ -188,7 +190,7 @@ class NBADatabase:
 
             return [self._player_row_to_dict(row) for row in rows]
 
-    def cache_season_stats(self, player_id: int, season: int, stats: Dict):
+    def cache_season_stats(self, player_id: int, season: int, stats: Dict, postseason: bool = False):
         """Cache season statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -196,17 +198,17 @@ class NBADatabase:
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO season_stats
-                (player_id, season, games_played, pts, reb, ast, 
+                (player_id, season, postseason, games_played, pts, reb, ast, 
                  fg_pct, fg3_pct, ft_pct, min, last_updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """, (player_id,
-                  season, stats.get('games_played'), stats.get('pts'),
+                  season, 1 if postseason else 0, stats.get('games_played'), stats.get('pts'),
                   stats.get('reb'), stats.get('ast'), stats.get('fg_pct'),
                   stats.get('fg3_pct'), stats.get('ft_pct'), stats.get('min')))
 
             conn.commit()
 
-    def get_season_stats(self, player_id: int, season: int) -> Optional[Dict]:
+    def get_season_stats(self, player_id: int, season: int, postseason: bool = False) -> Optional[Dict]:
         """Retrieve cached season stats"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -214,9 +216,9 @@ class NBADatabase:
             cursor.execute(
                 """
                 SELECT * FROM season_stats 
-                WHERE player_id = ? AND season = ?
+                WHERE player_id = ? AND season = ? AND postseason = ?
                 AND last_updated > datetime('now', '-1 day')
-            """, (player_id, season))
+            """, (player_id, season, 1 if postseason else 0))
 
             row = cursor.fetchone()
 
@@ -236,7 +238,7 @@ class NBADatabase:
 
             return None
 
-    def cache_game_stats(self, player_id: int, games: List[Dict]):
+    def cache_game_stats(self, player_id: int, games: List[Dict], postseason: bool = False):
         """Cache game statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -247,12 +249,12 @@ class NBADatabase:
                 cursor.execute(
                     """
                     INSERT OR REPLACE INTO game_stats
-                    (player_id, game_id, game_date, season, pts, reb, ast, 
+                    (player_id, game_id, game_date, season, postseason, pts, reb, ast, 
                      fg_pct, fg3m, min, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
                     (player_id, game_data.get('id'), game_data.get('date'),
-                     game_data.get('season'), game.get('pts'), game.get('reb'),
+                     game_data.get('season'), 1 if postseason else 0, game.get('pts'), game.get('reb'),
                      game.get('ast'), game.get('fg_pct'), game.get('fg3m'),
                      game.get('min')))
 
@@ -261,7 +263,8 @@ class NBADatabase:
     def get_game_stats(self,
                        player_id: int,
                        limit: int = 20,
-                       season: int = None) -> List[Dict]:
+                       season: int = None,
+                       postseason: bool = False) -> List[Dict]:
         """Retrieve cached game stats"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -270,20 +273,20 @@ class NBADatabase:
                 cursor.execute(
                     """
                     SELECT * FROM game_stats 
-                    WHERE player_id = ? AND season = ?
+                    WHERE player_id = ? AND season = ? AND postseason = ?
                     AND last_updated > datetime('now', '-1 day')
                     ORDER BY game_date DESC
                     LIMIT ?
-                """, (player_id, season, limit))
+                """, (player_id, season, 1 if postseason else 0, limit))
             else:
                 cursor.execute(
                     """
                     SELECT * FROM game_stats 
-                    WHERE player_id = ?
+                    WHERE player_id = ? AND postseason = ?
                     AND last_updated > datetime('now', '-1 day')
                     ORDER BY game_date DESC
                     LIMIT ?
-                """, (player_id, limit))
+                """, (player_id, 1 if postseason else 0, limit))
 
             rows = cursor.fetchall()
 

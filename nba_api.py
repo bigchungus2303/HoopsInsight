@@ -104,18 +104,19 @@ class NBAAPIClient:
             print(f"Error getting player info: {e}")
             return None
     
-    def get_season_stats(self, player_id: int, season: int) -> Optional[Dict]:
+    def get_season_stats(self, player_id: int, season: int, postseason: bool = False) -> Optional[Dict]:
         """Get season averages for a player"""
         try:
             # Try cache first
-            cached_stats = self.db.get_season_stats(player_id, season)
+            cached_stats = self.db.get_season_stats(player_id, season, postseason=postseason)
             if cached_stats:
                 return cached_stats
             
             # Use old v1 API with SINGULAR parameters
             params = {
                 'player_id': player_id,  # Singular!
-                'season': season          # Singular!
+                'season': season,         # Singular!
+                'postseason': postseason  # Boolean for playoff vs regular season
             }
             
             response = self._make_request("season_averages", params)
@@ -124,7 +125,7 @@ class NBAAPIClient:
             if data:
                 stats = data[0]
                 # Cache the stats
-                self.db.cache_season_stats(player_id, season, stats)
+                self.db.cache_season_stats(player_id, season, stats, postseason=postseason)
                 return stats
             
             return None
@@ -133,7 +134,7 @@ class NBAAPIClient:
             print(f"Error getting season stats: {e}")
             return None
     
-    def get_recent_games(self, player_id: int, limit: int = 20, season: int = None) -> List[Dict]:
+    def get_recent_games(self, player_id: int, limit: int = 20, season: int = None, postseason: bool = False) -> List[Dict]:
         """Get recent games for a player"""
         try:
             # If no season specified, use current season
@@ -142,7 +143,7 @@ class NBAAPIClient:
                 season = current_year if datetime.now().month >= 10 else current_year - 1
             
             # Try cache first with season filter
-            cached_games = self.db.get_game_stats(player_id, limit, season=season)
+            cached_games = self.db.get_game_stats(player_id, limit, season=season, postseason=postseason)
             if cached_games and len(cached_games) >= min(5, limit):
                 # Filter cached games too - only return games where player actually played
                 filtered_cached = self._filter_played_games(cached_games)
@@ -155,6 +156,7 @@ class NBAAPIClient:
             params = {
                 'player_ids[]': player_id,     # Array notation required!
                 'seasons[]': season,           # Array notation required!
+                'postseason': postseason,      # Boolean for playoff vs regular season
                 'per_page': 100  # Get up to 100 games to ensure we capture the full season
             }
             
@@ -168,7 +170,7 @@ class NBAAPIClient:
             played_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
             
             # Cache ALL games (including DNP) for the season
-            self.db.cache_game_stats(player_id, games)
+            self.db.cache_game_stats(player_id, games, postseason=postseason)
             
             # Return only the requested number of most recent PLAYED games
             return played_games[:limit]
@@ -177,7 +179,7 @@ class NBAAPIClient:
             print(f"Error getting recent games: {e}")
             return []
     
-    def get_career_stats(self, player_id: int) -> List[Dict]:
+    def get_career_stats(self, player_id: int, postseason: bool = False) -> List[Dict]:
         """Get career statistics for a player across multiple seasons"""
         try:
             all_seasons = []
@@ -186,7 +188,8 @@ class NBAAPIClient:
             for season in range(2020, 2026):
                 params = {
                     'player_id': player_id,  # Singular!
-                    'season': season          # Singular!
+                    'season': season,         # Singular!
+                    'postseason': postseason  # Boolean for playoff vs regular season
                 }
                 
                 try:
