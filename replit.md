@@ -6,6 +6,25 @@ The NBA Player Performance Predictor is a data-driven Streamlit application that
 
 The system uses statistical modeling to estimate the likelihood of players maintaining hot streaks versus regressing toward their mean performance levels, with adjustments for career phase, seasonal trends, and recency bias.
 
+## Recent Changes
+
+### October 2025
+- **Season Display Format Update**: Changed all season displays from single year (e.g., "2024") to NBA convention format (e.g., "2024-2025") to better represent that seasons span two calendar years
+  - Updated main season selector, favorites selector, and comparison selector
+  - Season Statistics header now shows full season format
+  - API continues to use base year for requests (e.g., "2024-2025" → API request with year=2024)
+  
+- **Minutes Field Parser**: Fixed critical bug where minutes per game displayed as 0.0
+  - API returns minutes in "MM:SS" string format (e.g., "34:08" for 34 minutes 8 seconds)
+  - Added `parse_minutes()` function to convert MM:SS format to decimal (34.08 → 34.13 minutes)
+  - Applied parsing to display metrics, z-score calculations, and chart plotting
+  - Updated `statistics.py` to handle MM:SS format during z-score normalization
+  
+- **Full Season Data Availability**: Confirmed 2024-2025 season data available from October 2024 through April 2025
+  - Request `per_page=100` to fetch complete season data before sorting
+  - Recent games charts now correctly display 2025 dates (March-April 2025)
+  - All numeric conversions applied with `pd.to_numeric()` and `safe_float()`
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
