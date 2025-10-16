@@ -149,8 +149,8 @@ class NBAAPIClient:
         try:
             all_seasons = []
             
-            # Get season averages for recent years (2020-2024) using new NBA API format
-            for season in range(2020, 2025):
+            # Get season averages for recent years (2020-2025) using new NBA API format
+            for season in range(2020, 2026):
                 url = f"{self.nba_base_url}/season_averages/general"
                 params = {
                     'season': season,

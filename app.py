@@ -51,7 +51,7 @@ with st.sidebar:
         with st.expander("⭐ Favorites"):
             fav_season = st.selectbox(
                 "Season for Favorites", 
-                options=list(range(2024, 2019, -1)),
+                options=list(range(2025, 2019, -1)),
                 index=0,
                 key="fav_season_selector"
             )
@@ -83,7 +83,7 @@ with st.sidebar:
     season_year = current_year if datetime.now().month >= 10 else current_year - 1
     selected_season = st.selectbox(
         "Select Season", 
-        options=list(range(2024, 2019, -1)),
+        options=list(range(2025, 2019, -1)),
         index=0,
         key="season_selector"
     )
