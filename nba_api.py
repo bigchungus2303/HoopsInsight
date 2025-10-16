@@ -117,11 +117,10 @@ class NBAAPIClient:
             if cached_games and len(cached_games) >= min(5, limit):
                 return cached_games[:limit]
             
-            # Fetch from API for specific season
+            # Fetch from API for specific season - stats endpoint REQUIRES array notation
             params = {
-                'player_ids[]': player_id,
-                'seasons[]': season,
-                'season_types[]': 'regular',
+                'player_ids[]': player_id,     # Array notation required!
+                'seasons[]': season,           # Array notation required!
                 'per_page': limit
             }
             
