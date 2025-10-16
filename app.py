@@ -668,6 +668,118 @@ else:
             st.metric("Minutes Trend", "Declining" if minutes_trend['declining_trend'] else "Stable",
                      f"Slope: {minutes_trend['trend_slope']:.2f}")
             st.metric("Sustainability Factor", f"{minutes_trend['sustainability_factor']:.3f}")
+    
+    # Next Game Predictions
+    st.header("🔮 Next Game Predictions")
+    
+    if recent_games and season_stats:
+        st.markdown("*Based on historical performance and custom thresholds from Advanced Settings*")
+        
+        # Get custom thresholds and calculate probabilities
+        thresholds = st.session_state.get('custom_thresholds', {
+            'pts': [10, 15, 20],
+            'reb': [4, 6, 8, 10],
+            'ast': [4, 6, 8, 10],
+            'fg3m': [2, 3, 5]
+        })
+        
+        alpha = st.session_state.get('alpha', 0.85)
+        games_df = pd.DataFrame(recent_games)
+        
+        # Calculate probabilities
+        probability_results = model.calculate_inverse_frequency_probabilities(
+            games_df, thresholds, alpha=alpha
+        )
+        
+        # Display predictions in a grid
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Points predictions
+            if 'pts' in probability_results:
+                st.subheader("🏀 Points")
+                for threshold, data in sorted(probability_results['pts'].items()):
+                    success_prob = data['weighted_frequency']
+                    confidence = "High" if data['n_exceeds'] >= 5 else "Low"
+                    
+                    # Apply Bayesian smoothing if small sample
+                    if data.get('bayesian_smoothed'):
+                        bayes = data['bayesian_smoothed']
+                        success_prob = bayes['smoothed_probability']
+                        st.metric(
+                            f"≥ {threshold} points",
+                            f"{success_prob*100:.1f}%",
+                            f"Confidence: {confidence} ({data['n_games']} games)"
+                        )
+                    else:
+                        st.metric(
+                            f"≥ {threshold} points", 
+                            f"{success_prob*100:.1f}%",
+                            f"Confidence: {confidence} ({data['n_games']} games)"
+                        )
+            
+            # Assists predictions
+            if 'ast' in probability_results:
+                st.subheader("🎯 Assists")
+                for threshold, data in sorted(probability_results['ast'].items()):
+                    success_prob = data['weighted_frequency']
+                    confidence = "High" if data['n_exceeds'] >= 5 else "Low"
+                    
+                    if data.get('bayesian_smoothed'):
+                        success_prob = data['bayesian_smoothed']['smoothed_probability']
+                    
+                    st.metric(
+                        f"≥ {threshold} assists",
+                        f"{success_prob*100:.1f}%",
+                        f"Confidence: {confidence} ({data['n_games']} games)"
+                    )
+        
+        with col2:
+            # Rebounds predictions
+            if 'reb' in probability_results:
+                st.subheader("💪 Rebounds")
+                for threshold, data in sorted(probability_results['reb'].items()):
+                    success_prob = data['weighted_frequency']
+                    confidence = "High" if data['n_exceeds'] >= 5 else "Low"
+                    
+                    if data.get('bayesian_smoothed'):
+                        success_prob = data['bayesian_smoothed']['smoothed_probability']
+                    
+                    st.metric(
+                        f"≥ {threshold} rebounds",
+                        f"{success_prob*100:.1f}%",
+                        f"Confidence: {confidence} ({data['n_games']} games)"
+                    )
+            
+            # 3-Pointers predictions
+            if 'fg3m' in probability_results:
+                st.subheader("🎯 3-Pointers")
+                for threshold, data in sorted(probability_results['fg3m'].items()):
+                    success_prob = data['weighted_frequency']
+                    confidence = "High" if data['n_exceeds'] >= 5 else "Low"
+                    
+                    if data.get('bayesian_smoothed'):
+                        success_prob = data['bayesian_smoothed']['smoothed_probability']
+                    
+                    st.metric(
+                        f"≥ {threshold} threes",
+                        f"{success_prob*100:.1f}%",
+                        f"Confidence: {confidence} ({data['n_games']} games)"
+                    )
+        
+        # Show interpretation guide
+        with st.expander("ℹ️ How to Read Predictions"):
+            st.markdown("""
+            **Success Probability**: Historical frequency of achieving the threshold, weighted by recency.
+            
+            **Confidence Levels**:
+            - **High**: Player achieved this threshold 5+ times (reliable estimate)
+            - **Low**: Player achieved this threshold <5 times (less reliable, Bayesian smoothing applied)
+            
+            **Recency Weighting**: Recent games are weighted more heavily (α = {:.2f})
+            
+            **Note**: These predictions are based on historical patterns. Actual performance depends on matchup, health, and other factors.
+            """.format(alpha))
 
 # Player Comparison Section
 if st.session_state.comparison_data and st.session_state.player_data:
