@@ -75,8 +75,8 @@ with st.sidebar:
                         }
                         st.rerun()
     
-    # Player search
-    search_query = st.text_input("Search Player Name", placeholder="Enter player name...")
+    # Player search with autocomplete
+    search_query = st.text_input("Search Player Name", placeholder="Type player name (e.g., LeBron)...", key="player_search")
     
     # Season selection
     current_year = datetime.now().year
@@ -88,17 +88,32 @@ with st.sidebar:
         key="season_selector"
     )
     
+    # Initialize search results storage
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+    
+    # Autocomplete: Search automatically as user types
     if search_query and len(search_query) >= 2:
-        with st.spinner("Searching players..."):
-            players = api_client.search_players(search_query)
+        players = api_client.search_players(search_query)
         
         if players:
-            player_options = [f"{p['first_name']} {p['last_name']} ({p['team']['abbreviation']})" for p in players]
-            selected_player_idx = st.selectbox("Select Player", range(len(player_options)), format_func=lambda x: player_options[x])
+            # Store players for selection
+            st.session_state.search_results = players
             
+            # Create autocomplete dropdown with player suggestions
+            player_options = {f"{p['first_name']} {p['last_name']} ({p['team']['abbreviation']})": p for p in players}
+            player_names = list(player_options.keys())
+            
+            selected_player_name = st.selectbox(
+                "Select Player", 
+                options=player_names,
+                key="player_selector"
+            )
+            
+            # Auto-load button - loads when user clicks
             if st.button("Load Player Data"):
                 with st.spinner("Loading player data..."):
-                    player = players[selected_player_idx]
+                    player = player_options[selected_player_name]
                     st.session_state.selected_player = player
                     st.session_state.selected_season = selected_season
                     
@@ -113,6 +128,11 @@ with st.sidebar:
                         'recent_games': recent_games,
                         'career_stats': career_stats
                     }
+                    st.rerun()
+        else:
+            st.info("No players found. Try a different search term.")
+    elif search_query and len(search_query) < 2:
+        st.caption("Type at least 2 characters to search")
     
     st.divider()
     
