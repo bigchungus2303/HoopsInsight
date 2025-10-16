@@ -131,7 +131,7 @@ class InverseFrequencyModel:
         return results
     
     def apply_career_phase_weighting(self, games_df: pd.DataFrame, career_phase: str,
-                                   base_probabilities: Dict) -> Dict:
+                                   base_probabilities: Dict, lambda_params: Dict = None) -> Dict:
         """
         Apply career phase weighting to base probability calculations
         
@@ -140,7 +140,7 @@ class InverseFrequencyModel:
         adjusted_results = {}
         
         n_games = len(games_df)
-        career_weights = self.stats_engine.calculate_career_phase_weights(career_phase, n_games)
+        career_weights = self.stats_engine.calculate_career_phase_weights(career_phase, n_games, lambda_params)
         
         for stat, stat_results in base_probabilities.items():
             if stat not in games_df.columns:
@@ -404,7 +404,8 @@ class InverseFrequencyModel:
     def calculate_comprehensive_regression_model(self, games_df: pd.DataFrame,
                                                season_stats: Dict,
                                                career_phase: str,
-                                               thresholds: Dict) -> Dict:
+                                               thresholds: Dict,
+                                               lambda_params: Dict = None) -> Dict:
         """
         Comprehensive regression-to-mean model incorporating all adjustments
         """
@@ -418,7 +419,7 @@ class InverseFrequencyModel:
         
         # Step 2: Apply career phase weighting
         career_adjusted = self.apply_career_phase_weighting(
-            games_df, career_phase, base_probabilities
+            games_df, career_phase, base_probabilities, lambda_params
         )
         
         # Step 3: Fatigue/load analysis

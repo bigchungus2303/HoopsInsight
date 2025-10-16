@@ -191,13 +191,20 @@ with st.sidebar:
         st.divider()
         st.subheader("Career Phase Decay Parameters")
         
+        use_career_phase = st.checkbox(
+            "Enable Career Phase Decay",
+            value=False,
+            help="Apply career phase weighting to predictions (early/peak/late career adjustments)"
+        )
+        
         lambda_early = st.slider(
             "λ Early Career",
             min_value=0.01,
             max_value=0.10,
             value=0.02,
             step=0.01,
-            help="Lower decay = more weight on recent games for rising players"
+            help="Lower decay = more weight on recent games for rising players",
+            disabled=not use_career_phase
         )
         
         lambda_peak = st.slider(
@@ -206,7 +213,8 @@ with st.sidebar:
             max_value=0.15,
             value=0.05,
             step=0.01,
-            help="Balanced weighting for stable performers"
+            help="Balanced weighting for stable performers",
+            disabled=not use_career_phase
         )
         
         lambda_late = st.slider(
@@ -215,7 +223,8 @@ with st.sidebar:
             max_value=0.20,
             value=0.08,
             step=0.01,
-            help="Higher decay = stronger regression tendency for declining players"
+            help="Higher decay = stronger regression tendency for declining players",
+            disabled=not use_career_phase
         )
         
         st.session_state.custom_thresholds = {
@@ -225,6 +234,7 @@ with st.sidebar:
             'fg3m': [int(x.strip()) for x in fg3m_thresholds_input.split(',') if x.strip().isdigit()]
         }
         st.session_state.alpha = alpha_value
+        st.session_state.use_career_phase = use_career_phase
         st.session_state.lambda_params = {
             'early': lambda_early,
             'peak': lambda_peak,
@@ -673,7 +683,13 @@ else:
     st.header("🔮 Next Game Predictions")
     
     if recent_games and season_stats:
-        st.markdown("*Based on historical performance and custom thresholds from Advanced Settings*")
+        # Check if career phase decay is enabled
+        use_career_phase = st.session_state.get('use_career_phase', False)
+        
+        if use_career_phase:
+            st.markdown("*Predictions with Career Phase Decay enabled (Advanced Settings)*")
+        else:
+            st.markdown("*Based on historical performance and custom thresholds from Advanced Settings*")
         
         # Get custom thresholds and calculate probabilities
         thresholds = st.session_state.get('custom_thresholds', {
@@ -686,10 +702,54 @@ else:
         alpha = st.session_state.get('alpha', 0.85)
         games_df = pd.DataFrame(recent_games)
         
-        # Calculate probabilities
-        probability_results = model.calculate_inverse_frequency_probabilities(
-            games_df, thresholds, alpha=alpha
-        )
+        # Calculate probabilities based on settings
+        if use_career_phase:
+            # Determine career phase
+            career_stats = player_info.get('career_stats', [])
+            career_phase = stats_engine.calculate_career_phase(career_stats)
+            
+            # Get lambda parameters from session state
+            lambda_params = st.session_state.get('lambda_params', {
+                'early': 0.02,
+                'peak': 0.05,
+                'late': 0.08
+            })
+            
+            # Use comprehensive model with career phase
+            comprehensive_results = model.calculate_comprehensive_regression_model(
+                games_df, season_stats, career_phase, thresholds, lambda_params
+            )
+            
+            # Extract weighted frequencies for display
+            probability_results = {}
+            for stat in thresholds.keys():
+                if stat in comprehensive_results:
+                    probability_results[stat] = {}
+                    for threshold, data in comprehensive_results[stat].items():
+                        # Use career-weighted frequency if available
+                        if 'career_weighted_frequency' in data:
+                            weighted_freq = data['career_weighted_frequency']
+                        else:
+                            weighted_freq = data.get('weighted_frequency', 0)
+                        
+                        probability_results[stat][threshold] = {
+                            'weighted_frequency': weighted_freq,
+                            'n_games': data.get('n_games', 0),
+                            'n_exceeds': data.get('n_exceeds', 0),
+                            'bayesian_smoothed': data.get('bayesian_smoothed'),
+                            'career_phase': career_phase,
+                            'fatigue_adjustment': data.get('fatigue_adjustment', 1.0),
+                            'minutes_adjustment': data.get('minutes_adjustment', 1.0)
+                        }
+            
+            # Show career phase indicator
+            phase_emoji = {"early": "🌱", "rising": "📈", "peak": "⭐", "late": "🌅", "unknown": "❓"}
+            st.info(f"{phase_emoji.get(career_phase, '❓')} Career Phase: **{career_phase.title()}** - Predictions adjusted with decay parameters")
+        else:
+            # Use basic inverse-frequency model
+            probability_results = model.calculate_inverse_frequency_probabilities(
+                games_df, thresholds, alpha=alpha
+            )
         
         # Display predictions in a grid
         col1, col2 = st.columns(2)

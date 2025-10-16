@@ -9,12 +9,21 @@ The system uses statistical modeling to estimate the likelihood of players maint
 ## Recent Changes
 
 ### October 2025
+- **Career Phase Decay Toggle**: Added advanced feature to enable career phase weighting in predictions
+  - Toggle in Advanced Settings: "Enable Career Phase Decay"
+  - Auto-detects career phase: early (🌱), rising (📈), peak (⭐), late (🌅), unknown (❓)
+  - Applies lambda decay parameters when enabled (λ early/peak/late)
+  - Uses comprehensive regression model with fatigue, minutes, and non-stationarity adjustments
+  - Shows career phase indicator when enabled: "[emoji] Career Phase: [Phase]"
+  - Lambda sliders disabled when toggle OFF to prevent confusion
+
 - **Next Game Predictions Feature**: Added prediction section showing success probabilities for custom thresholds
   - Displays probability of achieving each threshold in next game (e.g., "≥ 20 points: 65%")
   - Uses weighted frequency from inverse-frequency model with Bayesian smoothing for small samples
   - Shows confidence levels (High if achieved 5+ times, Low otherwise)
   - Configurable thresholds from Advanced Settings (pts, reb, ast, fg3m)
   - Includes expandable info guide explaining probability calculations
+  - When career phase enabled, uses career-weighted frequencies instead
 
 - **Season Display Format Update**: Changed all season displays from single year (e.g., "2024") to NBA convention format (e.g., "2024-2025") to better represent that seasons span two calendar years
   - Updated main season selector, favorites selector, and comparison selector
