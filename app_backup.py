@@ -27,342 +27,9 @@ from components.charts import (create_recent_games_chart, create_probability_bar
                                create_comparison_chart)
 from components.lambda_advisor import show_lambda_advisor, calculate_optimal_lambda
 
-# Import pages (functions now defined inline)
-# from pages.prediction_history import show_prediction_history_page
-# from pages.season_report import show_season_report_page
-
-def show_prediction_history_page(db):
-    """Show prediction history page"""
-    st.header("📊 Prediction History")
-    st.info("Prediction history feature is being updated. Please check back later.")
-    
-def show_season_report_page(api_client, stats_engine, player_data):
-    """Show season report page with descriptive statistics and visualizations"""
-    st.header("📅 Season Report")
-    
-    if not player_data:
-        st.info("👈 Search and load a player from the sidebar to view their season report")
-        return
-    
-    player = player_data['player']
-    season_stats = player_data.get('season_stats')
-    all_games = player_data.get('all_games', [])
-    season = player_data.get('season')
-    is_postseason = player_data.get('is_postseason', False)
-    
-    # Player Header
-    st.subheader(f"📊 {player['first_name']} {player['last_name']}")
-    st.caption(f"{season}-{season+1} {'Playoffs' if is_postseason else 'Regular Season'}")
-    
-    if not all_games:
-        st.warning("No games found for this player in the selected season.")
-        return
-    
-    # Convert games to DataFrame
-    import pandas as pd
-    import plotly.graph_objects as go
-    from datetime import datetime
-    
-    # Get team lookup dictionary for opponent abbreviations
-    teams_lookup = api_client.get_teams()
-    
-    # Check if cached data has team information - if not, we need to fetch fresh
-    if all_games and len(all_games) > 0:
-        first_game = all_games[0]
-        game_info = first_game.get('game', {})
-        has_team_data = (
-            game_info.get('home_team_id') is not None or 
-            first_game.get('team', {}).get('id') is not None
-        )
-        
-        if not has_team_data:
-            st.warning("⚠️ Cached data missing team information. Click button below to clear cache and reload with opponent data.")
-            if st.button("🔄 Clear Cache & Reload", key="clear_cache_for_opponents"):
-                # Clear the player's game cache
-                if player:
-                    player_id = player.get('id')
-                    # Delete cached games for this player
-                    with api_client.db._get_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM game_stats WHERE player_id = ?", (player_id,))
-                        conn.commit()
-                    st.success("✅ Cache cleared! Please reload the player.")
-                    st.rerun()
-    
-    games_data = []
-    for game in all_games:
-        game_info = game.get('game', {})
-        game_date = game_info.get('date')
-        if game_date:
-            # The balldontlie API "stats" endpoint structure:
-            # game['game'] = {id, date, season, status, period, time, postseason, home_team_score, visitor_team_score, home_team_id, visitor_team_id}
-            # game['team'] = {id, abbreviation, city, conference, division, full_name, name}
-            
-            # Get team info from top level - this is the PLAYER's team
-            player_team_data = game.get('team', {})
-            player_team_id_from_game = player_team_data.get('id')
-            
-            # Get home/visitor team IDs from game info
-            home_team_id = game_info.get('home_team_id')
-            visitor_team_id = game_info.get('visitor_team_id')
-            
-            # Determine opponent using team lookup
-            if player_team_id_from_game == home_team_id:
-                # Player was home team, opponent is visitor
-                home_away = 'vs'
-                opponent_id = visitor_team_id
-            elif player_team_id_from_game == visitor_team_id:
-                # Player was away team, opponent is home
-                home_away = '@'
-                opponent_id = home_team_id
-            else:
-                home_away = 'vs'
-                opponent_id = None
-            
-            # Look up opponent abbreviation
-            opponent = teams_lookup.get(opponent_id, 'N/A') if opponent_id else 'N/A'
-            
-            games_data.append({
-                'date': pd.to_datetime(game_date),
-                'opponent': f"{home_away} {opponent}",
-                'pts': game.get('pts', 0),
-                'reb': game.get('reb', 0),
-                'ast': game.get('ast', 0),
-                'fg3m': game.get('fg3m', 0),
-                'fg3a': game.get('fg3a', 0),
-                'min': game.get('min', '0'),
-                'fg_pct': game.get('fg_pct', 0)
-            })
-    
-    if not games_data:
-        st.warning("No valid game data found.")
-        return
-    
-    games_df = pd.DataFrame(games_data)
-    games_df = games_df.sort_values('date')
-    
-    # Date Range Filter
-    st.subheader("📅 Date Range Filter")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        filter_type = st.radio(
-            "Filter By",
-            options=["Full Season", "Monthly", "Custom Date Range"],
-            index=0,
-            horizontal=False
-        )
-    
-    # Apply filters based on selection
-    filtered_df = games_df.copy()
-    
-    if filter_type == "Monthly":
-        with col2:
-            games_df['month'] = games_df['date'].dt.to_period('M')
-            available_months = games_df['month'].unique()
-            month_options = [str(m) for m in sorted(available_months)]
-            
-            if month_options:
-                selected_month = st.selectbox("Select Month", month_options)
-                filtered_df = games_df[games_df['month'] == pd.Period(selected_month)]
-    
-    elif filter_type == "Custom Date Range":
-        min_date = games_df['date'].min().date()
-        max_date = games_df['date'].max().date()
-        
-        with col2:
-            start_date = st.date_input(
-                "From",
-                value=min_date,
-                min_value=min_date,
-                max_value=max_date,
-                key="start_date_report"
-            )
-        
-        with col3:
-            end_date = st.date_input(
-                "To",
-                value=max_date,
-                min_value=min_date,
-                max_value=max_date,
-                key="end_date_report"
-            )
-        
-        # Filter by date range
-        filtered_df = games_df[
-            (games_df['date'].dt.date >= start_date) & 
-            (games_df['date'].dt.date <= end_date)
-        ]
-    
-    if filtered_df.empty:
-        st.warning("No games found in the selected date range.")
-        return
-    
-    st.divider()
-    
-    # Descriptive Statistics
-    st.subheader("📊 Descriptive Statistics")
-    
-    stats_to_analyze = ['pts', 'reb', 'ast', 'fg3m', 'min']
-    stat_labels = {
-        'pts': 'Points',
-        'reb': 'Rebounds',
-        'ast': 'Assists',
-        'fg3m': '3-Pointers Made',
-        'min': 'Minutes Played'
-    }
-    
-    # Convert minutes to numeric if string
-    if filtered_df['min'].dtype == 'object':
-        filtered_df['min'] = pd.to_numeric(filtered_df['min'].str.replace(':', '.').str[:5], errors='coerce')
-    
-    # Display metrics in grid
-    cols = st.columns(5)
-    for idx, stat in enumerate(stats_to_analyze):
-        with cols[idx]:
-            mean_val = filtered_df[stat].mean()
-            st.metric(
-                stat_labels[stat],
-                f"{mean_val:.1f}",
-                delta=None
-            )
-    
-    # Detailed statistics table
-    with st.expander("📈 View Detailed Statistics"):
-        stats_summary = []
-        for stat in stats_to_analyze:
-            stats_summary.append({
-                'Stat': stat_labels[stat],
-                'Mean': f"{filtered_df[stat].mean():.2f}",
-                'Median': f"{filtered_df[stat].median():.2f}",
-                'Std Dev': f"{filtered_df[stat].std():.2f}",
-                'Min': f"{filtered_df[stat].min():.2f}",
-                'Max': f"{filtered_df[stat].max():.2f}",
-                'Games': len(filtered_df)
-            })
-        
-        st.dataframe(pd.DataFrame(stats_summary), use_container_width=True, hide_index=True)
-    
-    st.divider()
-    
-    # Line Charts
-    st.subheader("📈 Performance Trends")
-    
-    for stat in ['pts', 'reb', 'ast']:
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=filtered_df['date'],
-            y=filtered_df[stat],
-            mode='lines+markers',
-            name=stat_labels[stat],
-            line=dict(width=2),
-            marker=dict(size=6)
-        ))
-        
-        # Add mean line
-        mean_val = filtered_df[stat].mean()
-        fig.add_hline(
-            y=mean_val,
-            line_dash="dash",
-            line_color="red",
-            annotation_text=f"Avg: {mean_val:.1f}",
-            annotation_position="right"
-        )
-        
-        fig.update_layout(
-            title=f"{stat_labels[stat]} Over Time",
-            xaxis_title="Date",
-            yaxis_title=stat_labels[stat],
-            hovermode='x unified',
-            height=300
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.divider()
-    
-    # Monthly Comparison (if full season view)
-    if filter_type == "Full Season" and len(filtered_df) > 5:
-        st.subheader("📊 Monthly Comparison")
-        
-        filtered_df['month'] = filtered_df['date'].dt.to_period('M').astype(str)
-        monthly_avg = filtered_df.groupby('month')[['pts', 'reb', 'ast']].mean().reset_index()
-        
-        fig = go.Figure()
-        
-        for stat in ['pts', 'reb', 'ast']:
-            fig.add_trace(go.Bar(
-                x=monthly_avg['month'],
-                y=monthly_avg[stat],
-                name=stat_labels[stat]
-            ))
-        
-        fig.update_layout(
-            title="Monthly Average Statistics",
-            xaxis_title="Month",
-            yaxis_title="Average Value",
-            barmode='group',
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.divider()
-    
-    # Game Log with Anomaly Detection
-    st.subheader("🎮 Game Log & Anomalies")
-    
-    # Detect anomalies
-    anomalies = []
-    for idx, row in filtered_df.iterrows():
-        # Check for DNP or very low minutes
-        if row['min'] < 5:
-            anomalies.append({
-                'date': row['date'],
-                'opponent': row['opponent'],
-                'type': '🔴 DNP/Low Minutes',
-                'detail': f"Only {row['min']:.1f} minutes played"
-            })
-        
-        # Check for statistical outliers (> 2 std dev)
-        for stat in ['pts', 'reb', 'ast']:
-            mean = filtered_df[stat].mean()
-            std = filtered_df[stat].std()
-            
-            if abs(row[stat] - mean) > 2 * std:
-                if row[stat] > mean:
-                    anomalies.append({
-                        'date': row['date'],
-                        'opponent': row['opponent'],
-                        'type': f'🔥 High {stat_labels[stat]}',
-                        'detail': f"{row[stat]:.0f} {stat} (avg: {mean:.1f})"
-                    })
-                else:
-                    anomalies.append({
-                        'date': row['date'],
-                        'opponent': row['opponent'],
-                        'type': f'❄️ Low {stat_labels[stat]}',
-                        'detail': f"{row[stat]:.0f} {stat} (avg: {mean:.1f})"
-                    })
-    
-    # Show anomalies
-    if anomalies:
-        st.info(f"**🔍 {len(anomalies)} anomalies detected**")
-        anomaly_df = pd.DataFrame(anomalies)
-        anomaly_df['date'] = pd.to_datetime(anomaly_df['date']).dt.strftime('%m/%d/%Y')
-        st.dataframe(anomaly_df, use_container_width=True, hide_index=True)
-    else:
-        st.success("✅ No significant anomalies detected")
-    
-    # Full game log
-    with st.expander("📋 View All Games"):
-        display_df = filtered_df.copy()
-        display_df['date'] = display_df['date'].dt.strftime('%m/%d/%Y')
-        display_df = display_df[['date', 'opponent', 'pts', 'reb', 'ast', 'fg3m', 'fg_pct', 'min']]
-        display_df.columns = ['Date', 'Opponent', 'PTS', 'REB', 'AST', '3PM', 'FG%', 'MIN']
-        display_df = display_df.sort_values('Date', ascending=False)
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+# Import pages
+from pages.prediction_history import show_prediction_history_page
+from pages.season_report import show_season_report_page
 
 # Initialize session state
 if 'selected_player' not in st.session_state:
@@ -399,7 +66,7 @@ current_page = st.session_state.current_page
 
 if current_page == 'Prediction History':
     # Minimal sidebar for Prediction History
-    with st.sidebar:
+with st.sidebar:
         # Navigation buttons
         st.subheader("Navigate")
         if st.button("🏀 Player Analysis", key="nav_to_analysis_from_history", use_container_width=True):
@@ -1067,7 +734,122 @@ else:
         display_games.columns = ['Date', 'PTS', 'REB', 'AST', 'FG%', '3PM', 'MIN']
         st.dataframe(display_games, use_container_width=True)
     
-    # Performance Insights section removed - keeping UI simple
+    # Inverse-Frequency Probability Analysis
+    st.header("🎯 Regression-to-Mean Analysis")
+    
+    if recent_games and season_stats:
+        # Get custom thresholds from session state or use defaults
+        thresholds = st.session_state.get('custom_thresholds', {
+            'pts': [10, 15, 20],
+            'reb': [4, 6, 8, 10],
+            'ast': [4, 6, 8, 10],
+            'fg3m': [2, 3, 5]
+        })
+        
+        alpha = st.session_state.get('alpha', 0.85)
+        
+        # Calculate dynamic thresholds based on player's season stats
+        dynamic_thresholds = stats_engine.calculate_dynamic_thresholds(season_stats)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Fixed Thresholds Analysis")
+            
+            games_df = pd.DataFrame(recent_games)
+            probability_results = model.calculate_inverse_frequency_probabilities(
+                games_df, thresholds, alpha=alpha
+            )
+            
+            # Create grouped bar chart
+            fig = go.Figure()
+            
+            stats_to_plot = ['pts', 'reb', 'ast', 'fg3m']
+            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+            
+            for i, stat in enumerate(stats_to_plot):
+                if stat in probability_results:
+                    thresholds_list = list(probability_results[stat].keys())
+                    frequencies = [probability_results[stat][t]['frequency'] for t in thresholds_list]
+                    inverse_probs = [probability_results[stat][t]['inverse_probability'] for t in thresholds_list]
+                    
+                    x_pos = np.array(thresholds_list) + i * 0.8
+                    
+                    fig.add_trace(go.Bar(
+                        x=x_pos, y=frequencies,
+                        name=f'{stat.upper()} Frequency',
+                        marker_color=colors[i],
+                        opacity=0.7
+                    ))
+                    
+                    fig.add_trace(go.Bar(
+                        x=x_pos + 0.4, y=inverse_probs,
+                        name=f'{stat.upper()} Cool-off Prob',
+                        marker_color=colors[i],
+                        opacity=1.0,
+                        marker_pattern_shape="/"
+                    ))
+            
+            fig.update_layout(
+                title="Frequency vs Cool-off Probability",
+                xaxis_title="Threshold Values",
+                yaxis_title="Probability",
+                barmode='group',
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.subheader("Dynamic Thresholds (Player-Specific)")
+            
+            # Show dynamic thresholds table
+            dynamic_df = pd.DataFrame([
+                {'Stat': 'Points', 'Mean': f"{dynamic_thresholds['pts']['mean']:.1f}",
+                 'μ+σ': f"{dynamic_thresholds['pts']['plus_1_std']:.1f}",
+                 'μ+2σ': f"{dynamic_thresholds['pts']['plus_2_std']:.1f}",
+                 'μ+3σ': f"{dynamic_thresholds['pts']['plus_3_std']:.1f}"},
+                {'Stat': 'Rebounds', 'Mean': f"{dynamic_thresholds['reb']['mean']:.1f}",
+                 'μ+σ': f"{dynamic_thresholds['reb']['plus_1_std']:.1f}",
+                 'μ+2σ': f"{dynamic_thresholds['reb']['plus_2_std']:.1f}",
+                 'μ+3σ': f"{dynamic_thresholds['reb']['plus_3_std']:.1f}"},
+                {'Stat': 'Assists', 'Mean': f"{dynamic_thresholds['ast']['mean']:.1f}",
+                 'μ+σ': f"{dynamic_thresholds['ast']['plus_1_std']:.1f}",
+                 'μ+2σ': f"{dynamic_thresholds['ast']['plus_2_std']:.1f}",
+                 'μ+3σ': f"{dynamic_thresholds['ast']['plus_3_std']:.1f}"}
+            ])
+            
+            st.dataframe(dynamic_df, use_container_width=True)
+            
+            # Calculate probabilities for dynamic thresholds
+            dynamic_prob_results = model.calculate_dynamic_threshold_probabilities(
+                games_df, dynamic_thresholds, alpha=alpha
+            )
+            
+            st.write("**Cool-off Probabilities at Dynamic Thresholds:**")
+            
+            # Check if we have small sample size
+            n_games = games_df.shape[0] if not games_df.empty else 0
+            if n_games < 10:
+                st.info(f"ℹ️ Small sample size ({n_games} games) - Bayesian smoothing applied for robust estimates")
+            
+            for stat in ['pts', 'reb', 'ast']:
+                if stat in dynamic_prob_results:
+                    st.write(f"**{stat.upper()}:**")
+                    for threshold, data in dynamic_prob_results[stat].items():
+                        # Display Bayesian smoothed estimate if available
+                        if data.get('bayesian_smoothed'):
+                            bayes = data['bayesian_smoothed']
+                            smoothed_inv_prob = 1 - bayes['smoothed_probability']
+                            credible_int = f"[{1-bayes['credible_interval_upper']:.2f}, {1-bayes['credible_interval_lower']:.2f}]"
+                            st.write(f"  - {threshold}: {smoothed_inv_prob:.3f} (Bayesian CI: {credible_int})")
+                        else:
+                            ci_display = ""
+                            if 'ci_lower' in data and 'ci_upper' in data:
+                                ci_display = f" (95% CI: [{data['ci_lower']:.2f}, {data['ci_upper']:.2f}])"
+                            sig_marker = " *" if data.get('significant', False) else ""
+                            st.write(f"  - {threshold}: {data['inverse_probability']:.3f}{ci_display}{sig_marker}")
+    
     # Career Phase and Fatigue Analysis
     st.header("⚡ Career Phase & Fatigue Analysis")
     
@@ -1139,98 +921,6 @@ else:
     st.header("🔮 Next Game Predictions")
     
     if recent_games and season_stats:
-        # Opponent Team Filter
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            filter_by_opponent = st.toggle("🏀 Filter by Opponent", value=False, help="Filter predictions based on performance against specific team")
-        
-        opponent_team = None
-        filtered_recent_games = recent_games
-        
-        if filter_by_opponent:
-            with col2:
-                # Text input for opponent team abbreviation
-                opponent_team_input = st.text_input(
-                    "Enter Opponent Team (e.g., LAL, BOS, GSW)",
-                    placeholder="Type team abbreviation...",
-                    help="Enter the 3-letter team abbreviation for the next opponent",
-                    key="opponent_team_input"
-                )
-                
-                # Get team lookup and show available teams from history as reference
-                teams_lookup = api_client.get_teams()
-                opponents_set = set()
-                for game in recent_games:
-                    game_info = game.get('game', {})
-                    player_team_data = game.get('team', {})
-                    player_team_id = player_team_data.get('id')
-                    
-                    home_team_id = game_info.get('home_team_id')
-                    visitor_team_id = game_info.get('visitor_team_id')
-                    
-                    # Determine opponent ID
-                    if player_team_id == home_team_id:
-                        opponent_id = visitor_team_id
-                    elif player_team_id == visitor_team_id:
-                        opponent_id = home_team_id
-                    else:
-                        opponent_id = None
-                    
-                    # Look up opponent abbreviation
-                    if opponent_id and opponent_id in teams_lookup:
-                        opponents_set.add(teams_lookup[opponent_id])
-                
-                opponents_list = sorted(list(opponents_set))
-                
-                if opponents_list:
-                    st.caption(f"💡 Teams from history: {', '.join(opponents_list[:10])}")
-            
-            # Process opponent filter when user enters a team
-            if opponent_team_input and len(opponent_team_input.strip()) > 0:
-                opponent_team = opponent_team_input.strip().upper()
-                
-                # Filter games to only those against entered opponent (sorted by date, most recent first)
-                opponent_games = []
-                for game in recent_games:
-                    game_info = game.get('game', {})
-                    player_team_data = game.get('team', {})
-                    player_team_id = player_team_data.get('id')
-                    
-                    home_team_id = game_info.get('home_team_id')
-                    visitor_team_id = game_info.get('visitor_team_id')
-                    
-                    # Determine opponent ID
-                    if player_team_id == home_team_id:
-                        opponent_id = visitor_team_id
-                    elif player_team_id == visitor_team_id:
-                        opponent_id = home_team_id
-                    else:
-                        opponent_id = None
-                    
-                    # Look up opponent abbreviation
-                    game_opponent = teams_lookup.get(opponent_id, 'N/A') if opponent_id else 'N/A'
-                    
-                    if game_opponent.upper() == opponent_team:
-                        opponent_games.append(game)
-                
-                # Use only the last 3 games against this opponent
-                if opponent_games:
-                    # Sort by date to get most recent games
-                    opponent_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
-                    filtered_recent_games = opponent_games[:3]  # Take only last 3 games
-                    
-                    if len(opponent_games) > 3:
-                        st.success(f"✅ Using **last 3 games** against **{opponent_team}** (found {len(opponent_games)} total)")
-                    else:
-                        st.success(f"✅ Using **{len(filtered_recent_games)} game(s)** against **{opponent_team}**")
-                else:
-                    # Check if the team abbreviation is valid by looking at the reference list
-                    if opponent_team in opponents_list:
-                        st.warning(f"⚠️ **{opponent_team}** is in history but not found in the loaded {len(recent_games)} recent games. Try loading more games or check the season.")
-                    else:
-                        st.info(f"💡 No games vs **{opponent_team}** in loaded history. Predictions will use general performance across all recent games.")
-                    filtered_recent_games = recent_games  # Fall back to all games
-        
         # Check if career phase decay is enabled
         use_career_phase = st.session_state.get('use_career_phase', False)
         
@@ -1248,7 +938,7 @@ else:
         })
         
         alpha = st.session_state.get('alpha', 0.85)
-        games_df = pd.DataFrame(filtered_recent_games)
+        games_df = pd.DataFrame(recent_games)
         
         # Calculate probabilities based on settings
         if use_career_phase:
@@ -1363,7 +1053,7 @@ else:
             # Show simplified, user-friendly predictions
             show_simple_predictions(probability_results)
             show_betting_summary(probability_results)
-        else:
+                    else:
             # Show technical predictions (original)
             show_all_predictions(probability_results)
         

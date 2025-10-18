@@ -1,0 +1,9 @@
+# NBA Performance Predictor - Python 3.11+ Required
+# Core dependencies for statistical analysis and visualization
+
+streamlit>=1.50.0
+pandas>=2.3.3
+numpy>=2.3.4
+plotly>=6.3.1
+requests>=2.32.5
+scipy>=1.16.2

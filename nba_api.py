@@ -5,45 +5,89 @@ from typing import List, Dict, Optional
 import pandas as pd
 from datetime import datetime, timedelta
 from database import NBADatabase
+from logger import get_logger
+import config
+
+logger = get_logger(__name__)
 
 class NBAAPIClient:
     """Client for interacting with the balldontlie.io NBA API"""
     
     def __init__(self):
-        self.base_url = "https://api.balldontlie.io/v1"
-        self.nba_base_url = "https://api.balldontlie.io/nba/v1"  # New NBA API format
+        self.base_url = config.API_BASE_URL
         self.api_key = os.getenv("NBA_API_KEY", "")  # API key from environment
         self.headers = {"Authorization": self.api_key} if self.api_key else {}  # Direct API key, not Bearer
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         self.db = NBADatabase()
+        self.api_call_count = 0  # Track API usage
+        self.cache_hit_count = 0  # Track cache hits
+        self._teams_cache = None  # Cache for team lookups
+        
+        if not self.api_key:
+            logger.warning("NBA_API_KEY not set - API calls may be rate limited")
     
-    def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = 3) -> Dict:
+    def _make_request(self, endpoint: str, params: Dict = None, max_retries: int = None) -> Dict:
         """Make API request with retry logic"""
+        if max_retries is None:
+            max_retries = config.API_MAX_RETRIES
+            
         url = f"{self.base_url}/{endpoint}"
         
         # Convert boolean values to lowercase strings for API compatibility
         if params:
             params = {k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()}
         
+        logger.debug(f"API request to {endpoint} with params: {params}")
+        
         for attempt in range(max_retries):
             try:
-                response = self.session.get(url, params=params, timeout=10)
+                response = self.session.get(url, params=params, timeout=config.API_TIMEOUT)
+                self.api_call_count += 1
                 
                 if response.status_code == 200:
+                    logger.debug(f"API request successful: {endpoint}")
                     return response.json()
                 elif response.status_code == 429:  # Rate limit
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    wait_time = config.API_RATE_LIMIT_BACKOFF_BASE ** attempt
+                    logger.warning(f"Rate limited. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                    time.sleep(wait_time)
                     continue
                 else:
+                    logger.error(f"API request failed with status {response.status_code}: {response.text[:200]}")
                     response.raise_for_status()
             
+            except requests.exceptions.Timeout:
+                logger.warning(f"Request timeout on attempt {attempt + 1}/{max_retries}")
+                if attempt == max_retries - 1:
+                    raise Exception(f"API request timed out after {max_retries} attempts")
+                time.sleep(1)
             except requests.exceptions.RequestException as e:
+                logger.error(f"Request exception on attempt {attempt + 1}/{max_retries}: {str(e)}")
                 if attempt == max_retries - 1:
                     raise Exception(f"API request failed after {max_retries} attempts: {str(e)}")
                 time.sleep(1)
         
         return {}
+    
+    def get_api_call_count(self) -> int:
+        """Return the number of API calls made in this session"""
+        return self.api_call_count
+    
+    def get_cache_hit_count(self) -> int:
+        """Return the number of cache hits in this session"""
+        return self.cache_hit_count
+    
+    def get_cache_stats(self) -> Dict:
+        """Return cache statistics including hit rate"""
+        total_requests = self.api_call_count + self.cache_hit_count
+        hit_rate = (self.cache_hit_count / total_requests * 100) if total_requests > 0 else 0.0
+        return {
+            'api_calls': self.api_call_count,
+            'cache_hits': self.cache_hit_count,
+            'total_requests': total_requests,
+            'cache_hit_rate': hit_rate
+        }
     
     def _filter_played_games(self, games: List[Dict]) -> List[Dict]:
         """Filter out games where player didn't play (DNP, injured, etc.)"""
@@ -96,7 +140,7 @@ class NBAAPIClient:
             
             return players
         except Exception as e:
-            print(f"Error searching players: {e}")
+            logger.error(f"Error searching players: {e}", exc_info=True)
             return []
     
     def get_player_info(self, player_id: int) -> Optional[Dict]:
@@ -105,7 +149,7 @@ class NBAAPIClient:
             response = self._make_request(f"players/{player_id}")
             return response.get('data')
         except Exception as e:
-            print(f"Error getting player info: {e}")
+            logger.error(f"Error getting player info for player_id {player_id}: {e}", exc_info=True)
             return None
     
     def get_season_stats(self, player_id: int, season: int, postseason: bool = False) -> Optional[Dict]:
@@ -114,6 +158,8 @@ class NBAAPIClient:
             # Try cache first
             cached_stats = self.db.get_season_stats(player_id, season, postseason=postseason)
             if cached_stats:
+                self.cache_hit_count += 1
+                logger.debug(f"Cache hit: season stats for player {player_id}, season {season}")
                 return cached_stats
             
             # For playoffs, the season_averages endpoint doesn't support postseason parameter
@@ -203,7 +249,7 @@ class NBAAPIClient:
                 return None
             
         except Exception as e:
-            print(f"Error getting season stats: {e}")
+            logger.error(f"Error getting season stats for player_id {player_id}, season {season}, postseason={postseason}: {e}", exc_info=True)
             return None
     
     def get_recent_games(self, player_id: int, limit: int = 20, season: int = None, postseason: bool = False) -> List[Dict]:
@@ -220,6 +266,8 @@ class NBAAPIClient:
                 # Filter cached games too - only return games where player actually played
                 filtered_cached = self._filter_played_games(cached_games)
                 if len(filtered_cached) >= min(5, limit):
+                    self.cache_hit_count += 1
+                    logger.debug(f"Cache hit: recent games for player {player_id}, season {season}")
                     return filtered_cached[:limit]
                 # If not enough played games in cache, fetch fresh data below
             
@@ -248,7 +296,7 @@ class NBAAPIClient:
             return played_games[:limit]
             
         except Exception as e:
-            print(f"Error getting recent games: {e}")
+            logger.error(f"Error getting recent games for player_id {player_id}, season {season}, postseason={postseason}: {e}", exc_info=True)
             return []
     
     def get_career_stats(self, player_id: int, postseason: bool = False) -> List[Dict]:
@@ -277,7 +325,7 @@ class NBAAPIClient:
             return all_seasons
             
         except Exception as e:
-            print(f"Error getting career stats: {e}")
+            logger.error(f"Error getting career stats for player_id {player_id}, postseason={postseason}: {e}", exc_info=True)
             return []
     
     def get_team_stats(self, season: int) -> List[Dict]:
@@ -292,7 +340,7 @@ class NBAAPIClient:
             return response.get('data', [])
             
         except Exception as e:
-            print(f"Error getting team stats: {e}")
+            logger.error(f"Error getting team stats for season {season}: {e}", exc_info=True)
             return []
     
     def get_league_averages(self, season: int) -> Dict:
@@ -362,24 +410,38 @@ class NBAAPIClient:
             return league_averages
             
         except Exception as e:
-            print(f"Error calculating league averages: {e}")
+            logger.error(f"Error calculating league averages for season {season}: {e}", exc_info=True)
             return self._get_default_league_averages()
     
     def _get_default_league_averages(self) -> Dict:
         """Return default league averages if API fails"""
-        return {
-            'pts': 11.5,
-            'reb': 4.2,
-            'ast': 2.8,
-            'fg_pct': 0.462,
-            'fg3_pct': 0.367,
-            'ft_pct': 0.783,
-            'min': 20.5,
-            'pts_std': 8.5,
-            'reb_std': 3.2,
-            'ast_std': 2.9,
-            'fg_pct_std': 0.087,
-            'fg3_pct_std': 0.112,
-            'ft_pct_std': 0.125,
-            'min_std': 9.8
-        }
+        logger.warning("Using default league averages")
+        return config.DEFAULT_LEAGUE_AVERAGES.copy()
+    
+    def get_teams(self) -> Dict[int, str]:
+        """
+        Get all NBA teams and return a dict mapping team_id to abbreviation
+        Cached after first call for performance
+        """
+        if self._teams_cache is not None:
+            return self._teams_cache
+        
+        try:
+            response = self._make_request("teams", params={"per_page": 100})
+            teams = response.get('data', [])
+            
+            # Create mapping of team_id -> abbreviation
+            teams_dict = {}
+            for team in teams:
+                team_id = team.get('id')
+                abbreviation = team.get('abbreviation')
+                if team_id and abbreviation:
+                    teams_dict[team_id] = abbreviation
+            
+            self._teams_cache = teams_dict
+            logger.info(f"Loaded {len(teams_dict)} teams into cache")
+            return teams_dict
+            
+        except Exception as e:
+            logger.error(f"Error fetching teams: {e}", exc_info=True)
+            return {}

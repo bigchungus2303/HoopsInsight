@@ -106,6 +106,40 @@ class NBADatabase:
                     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            
+            # Predictions tracking table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_id INTEGER,
+                    player_name TEXT,
+                    game_date DATE,
+                    season INTEGER,
+                    stat_type TEXT,
+                    threshold REAL,
+                    predicted_probability REAL,
+                    prediction_confidence TEXT,
+                    actual_result INTEGER,
+                    actual_value REAL,
+                    prediction_correct INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    verified_at TIMESTAMP
+                )
+            """)
+            
+            # Prediction accuracy metrics table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS prediction_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stat_type TEXT,
+                    threshold_range TEXT,
+                    total_predictions INTEGER DEFAULT 0,
+                    correct_predictions INTEGER DEFAULT 0,
+                    accuracy_rate REAL DEFAULT 0.0,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(stat_type, threshold_range)
+                )
+            """)
 
             # Migration: Rebuild season_stats table with correct UNIQUE constraint
             cursor.execute("PRAGMA table_info(season_stats)")
@@ -492,3 +526,200 @@ class NBADatabase:
             """)
 
             conn.commit()
+    
+    #  === Prediction Tracking Methods ===
+    
+    def save_prediction(self, player_id: int, player_name: str, game_date: str, 
+                       season: int, stat_type: str, threshold: float, 
+                       predicted_probability: float, confidence: str):
+        """Save a prediction for future verification"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO predictions 
+                (player_id, player_name, game_date, season, stat_type, threshold,
+                 predicted_probability, prediction_confidence)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (player_id, player_name, game_date, season, stat_type, 
+                  threshold, predicted_probability, confidence))
+            
+            conn.commit()
+            return cursor.lastrowid
+    
+    def verify_prediction(self, prediction_id: int, actual_value: float):
+        """Verify a prediction with actual game result"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get prediction details
+            cursor.execute("""
+                SELECT threshold, predicted_probability, stat_type
+                FROM predictions
+                WHERE id = ?
+            """, (prediction_id,))
+            
+            result = cursor.fetchone()
+            if not result:
+                return False
+            
+            threshold = result['threshold']
+            predicted_prob = result['predicted_probability']
+            stat_type = result['stat_type']
+            
+            # Determine if prediction was correct
+            actual_result = 1 if actual_value >= threshold else 0
+            prediction_correct = 1 if (predicted_prob > 0.5 and actual_result == 1) or (predicted_prob <= 0.5 and actual_result == 0) else 0
+            
+            # Update prediction record
+            cursor.execute("""
+                UPDATE predictions
+                SET actual_value = ?, actual_result = ?, prediction_correct = ?,
+                    verified_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (actual_value, actual_result, prediction_correct, prediction_id))
+            
+            # Update prediction metrics
+            self._update_prediction_metrics(stat_type, threshold, prediction_correct, cursor)
+            
+            conn.commit()
+            return True
+    
+    def _update_prediction_metrics(self, stat_type: str, threshold: float, 
+                                   prediction_correct: int, cursor):
+        """Update aggregate prediction accuracy metrics"""
+        # Determine threshold range
+        if threshold < 10:
+            threshold_range = "low"
+        elif threshold < 20:
+            threshold_range = "medium"
+        else:
+            threshold_range = "high"
+        
+        # Get current metrics
+        cursor.execute("""
+            SELECT total_predictions, correct_predictions
+            FROM prediction_metrics
+            WHERE stat_type = ? AND threshold_range = ?
+        """, (stat_type, threshold_range))
+        
+        row = cursor.fetchone()
+        
+        if row:
+            # Update existing metrics
+            total = row['total_predictions'] + 1
+            correct = row['correct_predictions'] + prediction_correct
+            accuracy = (correct / total) * 100 if total > 0 else 0.0
+            
+            cursor.execute("""
+                UPDATE prediction_metrics
+                SET total_predictions = ?, correct_predictions = ?,
+                    accuracy_rate = ?, last_updated = CURRENT_TIMESTAMP
+                WHERE stat_type = ? AND threshold_range = ?
+            """, (total, correct, accuracy, stat_type, threshold_range))
+        else:
+            # Insert new metrics
+            accuracy = (prediction_correct / 1) * 100
+            cursor.execute("""
+                INSERT INTO prediction_metrics
+                (stat_type, threshold_range, total_predictions, correct_predictions, accuracy_rate)
+                VALUES (?, ?, ?, ?, ?)
+            """, (stat_type, threshold_range, 1, prediction_correct, accuracy))
+    
+    def get_prediction_accuracy(self, stat_type: str = None) -> List[Dict]:
+        """Get prediction accuracy metrics"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if stat_type:
+                cursor.execute("""
+                    SELECT * FROM prediction_metrics
+                    WHERE stat_type = ?
+                    ORDER BY threshold_range
+                """, (stat_type,))
+            else:
+                cursor.execute("""
+                    SELECT * FROM prediction_metrics
+                    ORDER BY stat_type, threshold_range
+                """)
+            
+            rows = cursor.fetchall()
+            
+            return [{
+                'stat_type': row['stat_type'],
+                'threshold_range': row['threshold_range'],
+                'total_predictions': row['total_predictions'],
+                'correct_predictions': row['correct_predictions'],
+                'accuracy_rate': row['accuracy_rate'],
+                'last_updated': row['last_updated']
+            } for row in rows]
+    
+    def get_recent_predictions(self, player_id: int = None, limit: int = 20, 
+                              verified_only: bool = False) -> List[Dict]:
+        """Get recent predictions, optionally filtered by player"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM predictions WHERE 1=1"
+            params = []
+            
+            if player_id:
+                query += " AND player_id = ?"
+                params.append(player_id)
+            
+            if verified_only:
+                query += " AND verified_at IS NOT NULL"
+            
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            return [{
+                'id': row['id'],
+                'player_id': row['player_id'],
+                'player_name': row['player_name'],
+                'game_date': row['game_date'],
+                'season': row['season'],
+                'stat_type': row['stat_type'],
+                'threshold': row['threshold'],
+                'predicted_probability': row['predicted_probability'],
+                'prediction_confidence': row['prediction_confidence'],
+                'actual_result': row['actual_result'],
+                'actual_value': row['actual_value'],
+                'prediction_correct': row['prediction_correct'],
+                'created_at': row['created_at'],
+                'verified_at': row['verified_at']
+            } for row in rows]
+    
+    def get_unverified_predictions(self, cutoff_date: str = None) -> List[Dict]:
+        """Get predictions that haven't been verified yet and are past their game date"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if cutoff_date:
+                cursor.execute("""
+                    SELECT * FROM predictions
+                    WHERE verified_at IS NULL AND game_date <= ?
+                    ORDER BY game_date DESC
+                """, (cutoff_date,))
+            else:
+                cursor.execute("""
+                    SELECT * FROM predictions
+                    WHERE verified_at IS NULL AND game_date <= date('now')
+                    ORDER BY game_date DESC
+                """)
+            
+            rows = cursor.fetchall()
+            
+            return [{
+                'id': row['id'],
+                'player_id': row['player_id'],
+                'player_name': row['player_name'],
+                'game_date': row['game_date'],
+                'season': row['season'],
+                'stat_type': row['stat_type'],
+                'threshold': row['threshold'],
+                'predicted_probability': row['predicted_probability']
+            } for row in rows]

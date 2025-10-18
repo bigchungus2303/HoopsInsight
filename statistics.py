@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List
 from scipy import stats
+from logger import get_logger
+import config
+
+logger = get_logger(__name__)
 
 class StatisticsEngine:
     """Engine for statistical calculations and normalizations"""
@@ -12,25 +16,12 @@ class StatisticsEngine:
     def get_league_averages(self, season: int) -> Dict:
         """Get or calculate league averages for a season"""
         if season in self.league_cache:
+            logger.debug(f"Using cached league averages for season {season}")
             return self.league_cache[season]
         
-        # Default NBA league averages (approximate for 2024 season)
-        league_averages = {
-            'pts': 11.5,
-            'reb': 4.2,
-            'ast': 2.8,
-            'fg_pct': 0.462,
-            'fg3_pct': 0.367,
-            'ft_pct': 0.783,
-            'min': 20.5,
-            'pts_std': 8.5,
-            'reb_std': 3.2,
-            'ast_std': 2.9,
-            'fg_pct_std': 0.087,
-            'fg3_pct_std': 0.112,
-            'ft_pct_std': 0.125,
-            'min_std': 9.8
-        }
+        # Default NBA league averages from config
+        logger.info(f"Loading default league averages for season {season}")
+        league_averages = config.DEFAULT_LEAGUE_AVERAGES.copy()
         
         self.league_cache[season] = league_averages
         return league_averages
@@ -89,12 +80,8 @@ class StatisticsEngine:
         
         stats_to_analyze = ['pts', 'reb', 'ast']
         
-        # Typical coefficient of variation for NBA stats
-        cv_estimates = {
-            'pts': 0.35,    # Points typically have ~35% CV
-            'reb': 0.40,    # Rebounds ~40% CV
-            'ast': 0.50     # Assists ~50% CV (more variable)
-        }
+        # Coefficient of variation for NBA stats from config
+        cv_estimates = config.CV_ESTIMATES
         
         for stat in stats_to_analyze:
             if stat in season_stats and season_stats[stat] is not None:
@@ -149,20 +136,22 @@ class StatisticsEngine:
         # Lambda values for different career phases
         if lambda_params:
             lambda_values = {
-                "early": lambda_params.get('early', 0.02),
-                "rising": lambda_params.get('early', 0.02),
-                "peak": lambda_params.get('peak', 0.05),
-                "late": lambda_params.get('late', 0.08),
-                "unknown": lambda_params.get('peak', 0.05)
+                "early": lambda_params.get('early', config.LAMBDA_EARLY),
+                "rising": lambda_params.get('early', config.LAMBDA_RISING),
+                "peak": lambda_params.get('peak', config.LAMBDA_PEAK),
+                "late": lambda_params.get('late', config.LAMBDA_LATE),
+                "unknown": lambda_params.get('peak', config.LAMBDA_UNKNOWN)
             }
         else:
             lambda_values = {
-                "early": 0.02,    # Less decay - recent performance more indicative
-                "rising": 0.03,   # Moderate decay
-                "peak": 0.05,     # Balanced weighting
-                "late": 0.08,     # More decay - regression more likely
-                "unknown": 0.04   # Default moderate decay
+                "early": config.LAMBDA_EARLY,    # Less decay - recent performance more indicative
+                "rising": config.LAMBDA_RISING,  # Moderate decay
+                "peak": config.LAMBDA_PEAK,      # Balanced weighting
+                "late": config.LAMBDA_LATE,      # More decay - regression more likely
+                "unknown": config.LAMBDA_UNKNOWN # Default moderate decay
             }
+        
+        logger.debug(f"Using lambda value {lambda_values.get(career_phase)} for career phase: {career_phase}")
         
         lambda_val = lambda_values.get(career_phase, 0.04)
         
