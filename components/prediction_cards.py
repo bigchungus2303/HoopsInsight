@@ -3,9 +3,7 @@ Prediction Cards Component
 
 Displays next-game predictions with:
 - Success probability percentages
-- Visual progress bars
-- Confidence indicators (High/Low)
-- Color-coded confidence levels
+- Clean metric display
 """
 
 import streamlit as st
@@ -32,12 +30,10 @@ def show_prediction_card(stat_name, emoji, probability_results, stat_key):
                 bayes = data['bayesian_smoothed']
                 success_prob = bayes['smoothed_probability']
             
-            # Clean, simple metric display
-            conf_emoji = "🟢" if confidence == "High" else "🟡"
+            # Clean, simple metric display - just show percentage
             st.metric(
                 f"≥ {threshold} {stat_name.lower()}",
-                f"{success_prob*100:.1f}%",
-                f"{conf_emoji} {confidence} confidence"
+                f"{success_prob*100:.1f}%"
             )
 
 

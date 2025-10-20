@@ -8,23 +8,26 @@ A sophisticated NBA player performance analysis and prediction tool using regres
 
 #### **1. Player Analysis** (Predictive)
 - **Player Search**: Find NBA players with autocomplete functionality
-- **Season Statistics**: View per-game averages with z-score normalization
-- **Recent Performance Analysis**: Analyze last 20 games with trend visualization
+- **Season Statistics**: View per-game averages and shooting percentages
+- **Season Performance Analysis**: Analyze all games from selected season (up to 100 games)
+- **Opponent-Specific Analysis**: Filter predictions by opponent team with autocomplete search
+  - Loads ALL games vs specific opponent from selected season
+  - Provides sample size warnings for reliability
 - **Inverse-Frequency Model**: Calculate regression-to-mean probabilities
 - **AI Lambda Advisor**: Auto-optimize career phase decay parameters
 - **Career Phase Weighting**: Adjust for early/peak/late career phases
 - **Player Comparison**: Side-by-side statistical analysis
-- **Fatigue Analysis**: Detect performance sustainability patterns
+- **Minutes Trend Analysis**: Track playing time patterns and sustainability
 - **Save Predictions**: Track predictions for model validation
 
 #### **2. Season Report** (Descriptive)
 - **Independent Player Search**: Load players directly in this page
 - **Custom Date Filtering**: Analyze by month or custom date range
-- **Descriptive Statistics**: Mean, median, std dev, min, max
-- **Performance Trends**: 6-panel game-by-game visualizations
-- **Monthly Comparison**: Compare performance across months
-- **Game Log**: Complete game-by-game breakdown
-- **Anomaly Detection**: Auto-detect DNPs, low minutes, outliers
+- **Descriptive Statistics**: Mean, median, std dev, min, max (PTS, REB, AST, 3PM, MIN)
+- **Performance Trends**: 4 line charts tracking Points, Rebounds, Assists, 3-Pointers
+- **Monthly Comparison**: Compare performance across months (includes 3-point stats)
+- **Game Log**: Complete game-by-game breakdown with all stats
+- **Anomaly Detection**: Auto-detect DNPs, low minutes, statistical outliers (including 3PM)
 
 #### **3. Prediction History** (Validation)
 - **Track Predictions**: Save and verify predictions after games
@@ -33,7 +36,7 @@ A sophisticated NBA player performance analysis and prediction tool using regres
 - **Model Performance**: Monitor prediction accuracy over time
 
 ### **Advanced Features:**
-- **Interactive Threshold Sliders**: Visual controls for all thresholds
+- **Custom Thresholds**: Set single target threshold for each stat category
 - **API Usage Dashboard**: Real-time cache performance monitoring
 - **Visual Confidence Meters**: Easy-to-read prediction reliability
 - **Export Functionality**: Export data as CSV or JSON
@@ -160,17 +163,17 @@ Edit `.streamlit/config.toml` to customize:
 1. **Search for a Player**: Use the sidebar to search for NBA players
 2. **Select Season**: Choose the season and type (Regular Season/Playoffs)
 3. **View Analysis**: 
-   - Season statistics with z-scores
+   - Season statistics and shooting percentages
    - Recent game performance trends
    - Probability predictions for next game
-   - Career phase and fatigue analysis
+   - Minutes played trend analysis
 4. **Compare Players**: Search for a second player to compare side-by-side
 5. **Export Data**: Download analysis results as CSV or JSON
 
 ## Advanced Settings
 
 Access advanced settings from the sidebar to customize:
-- **Custom Thresholds**: Set custom point/rebound/assist thresholds
+- **Custom Thresholds**: Set single target threshold for each stat (Points, Rebounds, Assists, 3PM)
 - **Recency Weight (α)**: Adjust how much weight to give recent games
 - **Career Phase Decay**: Enable/disable career phase adjustments
 
@@ -202,6 +205,26 @@ All NBA data is sourced from [balldontlie.io](https://balldontlie.io) API.
 - Reinstall dependencies: `pip install -r requirements.txt`
 - Make sure you're using Python 3.7+
 
+## 📚 Documentation
+
+### **Core Documents:**
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| **README.md** (this file) | Getting started, features, usage | Users |
+| **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** | Architecture, API, database, testing | Developers |
+| **[CHANGELOG.md](CHANGELOG.md)** | Feature history, updates | Everyone |
+| **[nba-stats-mvp.md](attached_assets/nba-stats-mvp.md)** | Mathematical spec, formulas | Developers |
+| **[tests/README.md](tests/README.md)** | Testing guide | Developers |
+
+### **Quick Links:**
+- 🆕 **What's new?** → Read [CHANGELOG.md](CHANGELOG.md)
+- 🔧 **How to develop?** → Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+- 🧪 **How to test?** → Read [tests/README.md](tests/README.md)
+- 📊 **Model details?** → Read [nba-stats-mvp.md](attached_assets/nba-stats-mvp.md)
+
+---
+
 ## License
 
 Apache License 2.0
@@ -212,7 +235,12 @@ This project uses:
 - Inverse-Frequency Probability Model for predictions
 - Bayesian smoothing for small sample sizes
 - Career phase decay parameters for aging adjustments
-- Fatigue analysis for sustainability assessment
+- Minutes trend analysis for playing time sustainability
+
+**Before contributing:**
+1. Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+2. Check [nba-stats-mvp.md](attached_assets/nba-stats-mvp.md) for model spec
+3. Run tests: `python run_tests.py`
 
 ---
 

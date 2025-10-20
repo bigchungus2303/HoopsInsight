@@ -293,7 +293,7 @@ z = \frac{x - μ_{season}}{σ_{season}}
 
 ## 🗂 Cursor Rule
 ```
-Always read nba-stats.md before coding.
+Always read nba-stats-mvp.md before coding.
 Document CLI flags, formulas, and assumptions.
 Update when model logic or API data structure changes or Update documentation after major features
 Frontend only starts after CLI validation.
@@ -357,7 +357,7 @@ Frontend only starts after CLI validation.
 13. ✅ Playoffs vs Regular Season toggle
 14. ✅ Comprehensive error handling & UX improvements
 15. ✅ Data quality indicators
-16. ✅ Interactive threshold sliders (October 18, 2025) ✨
+16. ✅ Simplified threshold settings - 1 input per stat (October 20, 2025) ✨
 17. ✅ API rate limit monitoring & cache statistics (October 18, 2025) ✨
 18. ✅ Visual confidence meters with progress bars (October 18, 2025) ✨
 19. ✅ App.py modularization (October 18, 2025) ✨
@@ -368,25 +368,37 @@ Frontend only starts after CLI validation.
 24. ✅ Simple prediction cards with betting guide (October 18, 2025) ✨
 25. ✅ Opponent team tracking in Season Report (October 18, 2025) ✨
 26. ✅ Opponent-specific prediction filtering (October 18, 2025) ✨
-27. ⏳ Historical multi-season charts (next priority)
-28. ⏳ React frontend migration (future enhancement)
+27. ✅ Team lookup API integration for opponent detection (October 18, 2025) ✨
+28. ✅ Removed confidence percentages from simple view (October 18, 2025) ✨
+29. ✅ Schema-versioned cache system (cache_sqlite.py) (October 20, 2025) ✨
+30. ✅ Team autocomplete for opponent filter (October 20, 2025) ✨
+31. ✅ Alpha impact visualizer (October 20, 2025) ✨
+32. ✅ 3PM stats in Season Report (October 20, 2025) ✨
+33. ✅ UI simplification - removed Z-scores (October 20, 2025) ✨
+34. ✅ Documentation consolidation - 23 docs → 6 (October 20, 2025) ✨
+35. ⏳ Historical multi-season charts (next priority)
+36. ⏳ Player news integration (on hold - design phase)
+37. ⏳ React frontend migration (future enhancement)
 
 ## 📝 Implementation Updates (October 2025)
 
-### Interactive Threshold Sliders ✨ NEW (October 18, 2025)
-**Major UX Improvement:**
-- Replaced comma-separated text inputs with interactive sliders
-- **Features:**
-  - 4 customizable sliders per stat category (Points, Rebounds, Assists, 3-Pointers)
-  - Appropriate min/max ranges for each stat type
-  - Visual feedback with tooltips
-  - Automatic sorting and duplicate removal
-- **Ranges:**
-  - Points: 5-50 (default: 10, 15, 20, 25)
-  - Rebounds: 1-20 (default: 4, 6, 8, 10)
-  - Assists: 1-20 (default: 4, 6, 8, 10)
-  - 3-Pointers: 0-15 (default: 2, 3, 5, 7)
-- **Impact:** Much more intuitive than text input, real-time visual adjustments
+### Simplified Threshold Inputs ✨ UPDATED (October 20, 2025)
+**Evolution:**
+- **Original**: Comma-separated text inputs
+- **Oct 18, 2025**: 16 interactive sliders (4 per stat)
+- **Oct 20, 2025**: 4 number inputs (1 per stat) - **CURRENT**
+
+**Current Implementation:**
+- Single threshold per category matches betting line format
+- **Inputs:**
+  - 🏀 Points: 5-50 (default: 20)
+  - 💪 Rebounds: 1-20 (default: 8)
+  - 🎯 Assists: 1-20 (default: 6)
+  - 🎯 3-Pointers: 0-15 (default: 3)
+- Clean 2-column layout
+- Single-line tooltips: "Set to 25 → Predicts probability of scoring OVER 25 points"
+
+**Impact:** 75% fewer controls (16 → 4), clearer user intent, matches sports betting UX
 
 ### API Usage Dashboard ✨ NEW (October 18, 2025)
 **Performance Monitoring Feature:**
@@ -799,6 +811,111 @@ probability_results = model.calculate_inverse_frequency_probabilities(
 - No opponent data in API → Graceful degradation, feature disabled
 - Multiple games vs same opponent → All included in analysis
 
+### Team Lookup API Integration ✨ NEW (October 18, 2025)
+**Fixed Opponent Detection Issue:**
+- Resolved "vs N/A" bug where opponent teams weren't displaying
+- Implemented centralized team lookup system
+
+**The Problem:**
+- balldontlie API's `/stats` endpoint returns `home_team_id` and `visitor_team_id` but NOT team abbreviations
+- Cached data didn't include team information
+- Previous logic tried to extract team data from nested objects (which were empty)
+
+**The Solution:**
+1. **Team Lookup Cache (`nba_api.py`)**:
+   ```python
+   def get_teams(self) -> Dict[int, str]:
+       """
+       Fetch all NBA teams and create ID → abbreviation mapping
+       Returns: {1: 'ATL', 2: 'BOS', 5: 'LAL', ...}
+       Cached in self._teams_cache for performance
+       """
+   ```
+
+2. **Opponent Detection Logic**:
+   ```python
+   # Get team IDs from game data
+   home_team_id = game['game']['home_team_id']      # e.g., 5
+   visitor_team_id = game['game']['visitor_team_id'] # e.g., 14
+   player_team_id = game['team']['id']              # e.g., 5
+   
+   # Determine opponent
+   if player_team_id == home_team_id:
+       opponent_id = visitor_team_id  # Player home, opponent visitor
+   else:
+       opponent_id = home_team_id     # Player away, opponent home
+   
+   # Lookup abbreviation
+   opponent = teams_lookup[opponent_id]  # "GSW"
+   ```
+
+3. **Cache Handling**:
+   - Added warning when old cached data lacks team info
+   - Provides "Clear Cache & Reload" button
+   - Fetches fresh data with complete team information
+
+**Technical Implementation:**
+- File: `nba_api.py` (lines 16, 25, 421-447)
+- File: `app.py` (lines 66-90 for Season Report, 1138-1191 for Player Analysis)
+- API endpoint: `/teams` (fetched once per session)
+- Caching: Stored in `self._teams_cache` dictionary
+- Performance: O(1) lookup, one-time API call
+
+**Benefits:**
+- ✅ Solves "vs N/A" display issue
+- ✅ Centralized team data management
+- ✅ Fast lookups with caching
+- ✅ Works for both Season Report and Player Analysis
+- ✅ Handles both fresh and cached data
+- ✅ No repeated API calls for team data
+
+**Impact:**
+- ✅ Opponent tracking now works correctly
+- ✅ Season Report shows actual team names
+- ✅ Player Analysis filtering works with real teams
+- ✅ Better user experience with accurate matchup data
+
+### Removed Confidence Percentages from Simple View ✨ NEW (October 18, 2025)
+**User Experience Improvement:**
+- Removed potentially misleading "(XX% confidence)" text from simple prediction cards
+- Simplified display for non-technical users
+
+**What Changed:**
+- **Before**: `❌ UNLIKELY (75% confidence)`
+- **After**: `❌ UNLIKELY`
+
+**Rationale:**
+- "100% confidence" sounds like a guarantee (misleading)
+- Percentages confuse non-technical users
+- LIKELY/UNLIKELY is clearer and more actionable
+- Focus on performance indicators (HOT/COLD) and betting recommendations
+
+**Technical Implementation:**
+- File: `components/simple_prediction_cards.py` (lines 115-119)
+- Simple change: Removed `({regression_prob:.0%} confidence)` from markdown strings
+- No impact on underlying calculations
+
+**What Remains:**
+- ✅ LIKELY/UNLIKELY prediction
+- ✅ Performance indicators (🔥 HOT, ❄️ COLD, 📊 STEADY, ⚡ VOLATILE)
+- ✅ Betting recommendations (OVER/UNDER/NEUTRAL/AVOID)
+- ✅ Actionable insights in plain language
+
+**Updated Display Format:**
+```
+🎯 Points ≥ 25
+✅ LIKELY    🔥 HOT    💡 BET: OVER
+
+💡 Strong recent performance - likely to exceed threshold
+```
+
+**Impact:**
+- ✅ Cleaner, less cluttered interface
+- ✅ Avoids misleading language
+- ✅ Better for casual/betting users
+- ✅ Focus on actionable information
+- ✅ Maintains all predictive power in background
+
 ---
 
 ## 📝 Earlier Implementation Updates (October 2025)
@@ -1030,14 +1147,314 @@ base = "light"
 
 ---
 
+## 🎯 Recent Enhancements
+
+### Schema-Versioned Cache System (Implemented: October 20, 2025)
+
+**Feature**: Complete cache rewrite with automatic schema validation and versioning
+
+**Problem Solved**: Old cache stored incomplete game objects missing `home_team_id`/`visitor_team_id`, causing opponent filter failures.
+
+**Implementation Details**:
+- **New Module**: `cache_sqlite.py` - Standalone cache library
+- **Schema Versioning**: `SCHEMA_VER = "games:v2"` - auto-invalidates on field changes
+- **Required Fields**: `{id, date, home_team_id, visitor_team_id}` - validated before caching
+- **TTL-Based Expiration**: 6 hours for games, 24 hours for teams
+- **Deterministic Keys**: SHA256 hash of namespace + params + schema version
+- **Auto-Recovery**: Schema mismatch triggers cache clear and refetch
+
+**Database Structure**:
+```sql
+CREATE TABLE http_cache (
+    key TEXT PRIMARY KEY,           -- SHA256 hash
+    payload TEXT NOT NULL,          -- JSON serialized
+    updated_at INTEGER NOT NULL,    -- Unix timestamp
+    schema_ver TEXT NOT NULL        -- e.g., "games:v2"
+)
+```
+
+**API Integration**:
+- `nba_api.py` updated to use new cache for `get_recent_games()` and `get_all_teams_details()`
+- Game normalization ensures all required fields present
+- Validation before caching prevents incomplete data
+
+**Cache Files**:
+- `cache.db` - HTTP cache (NEW, schema-versioned)
+- `nba_cache.db` - User data (favorites, predictions) - unchanged
+
+**User Impact**:
+- Opponent filter now works correctly (SAC, LAL, etc. all detected)
+- Fresh data guaranteed to have team IDs
+- Clear cache button in UI
+- Debug mode shows loaded game data
+
+**Formula/Assumptions**:
+- No formula changes
+- Assumption: All games from API v1 /stats endpoint include `home_team_id` and `visitor_team_id`
+- Assumption: Schema version changes are infrequent (backward compatibility)
+
+---
+
+### Simplified Threshold Settings (Implemented: October 20, 2025)
+
+**Feature**: Single threshold per stat category instead of 4 sliders
+
+**User Feedback**: "4 thresholds per category is confusing - users only need 1"
+
+**Implementation Details**:
+- **Before**: 16 sliders total (4 per category: PTS 1, PTS 2, PTS 3, PTS 4)
+- **After**: 4 number inputs total (1 per category)
+- **UI**: 2-column layout with clear labels
+- **Storage**: Still stores as arrays for code compatibility: `[20]` instead of `[10, 15, 20, 25]`
+
+**Technical Changes**:
+- `components/advanced_settings.py`: Replaced sliders with `st.number_input()`
+- Default thresholds: PTS=20, REB=8, AST=6, 3PM=3
+- Tooltips simplified to single-line examples
+
+**Formula/Assumptions**:
+- No formula changes
+- Threshold now represents single betting line (e.g., "Over 25.5 points")
+- Compatible with existing probability calculation model
+
+**User Impact**:
+- 75% fewer controls (16 → 4)
+- Clearer intent: "What's the line I care about?"
+- Matches sports betting interface patterns
+
+---
+
+### UI Simplification - Technical Terms Removed (Implemented: October 20, 2025)
+
+**Feature**: Remove technical jargon for general users
+
+**Changes**:
+1. **Removed Z-Scores from Season Statistics**
+   - Before: "Points per Game: 27.5  |  Z-Score: +1.84"
+   - After: "Points per Game: 27.5"
+   - Z-scores still calculated in background for normalization
+
+2. **Removed Confidence Labels from Predictions**
+   - Before: "68.5%  |  🟢 High confidence"
+   - After: "68.5%"
+   - Rationale: Misleading - based only on sample size, not actual reliability
+
+3. **Simplified Fatigue Analysis Section**
+   - Before: 2-column layout (Fatigue Curve + Minutes Trend)
+   - After: Single "Minutes Played Analysis" section
+   - Removed: Points fatigue curve, rolling averages, regression risk annotations
+   - Kept: Minutes trend chart, sustainability metrics
+
+**Technical Changes**:
+- `app.py`: Lines 976-989 - Removed Z-score deltas from metrics
+- `components/prediction_cards.py`: Lines 36-39 - Removed confidence indicator
+- `app.py`: Lines 1066-1107 - Simplified fatigue section
+
+**Formula/Assumptions**:
+- Z-score normalization still performed: `z = (x - μ) / σ`
+- Not displayed to users, used internally for league comparisons
+- Confidence still calculated: "High" if n_exceeds >= 5, "Low" otherwise
+- Not shown to avoid misleading users about prediction quality
+
+**User Impact**:
+- Cleaner, less intimidating interface
+- Focus on actionable numbers
+- Academic terms hidden but still used in calculations
+
+---
+
+### 3-Point Stats Added to Season Report (Implemented: October 20, 2025)
+
+**Feature**: Include 3-pointers analysis throughout Season Report page
+
+**User Feedback**: "Missing 3pts stats for most analysis"
+
+**Implementation Details**:
+- **Performance Trends**: Added 4th line chart for 3-Pointers Made over time
+- **Monthly Comparison**: Added 3PM to grouped bar chart
+- **Anomaly Detection**: Now detects 3PM outliers (> 2 std dev)
+- **Descriptive Stats**: Already included (no change needed)
+
+**Technical Changes**:
+- `app.py`: Line 251 - Added 'fg3m' to trend chart loop
+- `app.py`: Line 290, 294 - Added 'fg3m' to monthly aggregation
+- `app.py`: Line 329 - Added 'fg3m' to anomaly detection loop
+
+**Formula/Assumptions**:
+- Same statistical methods applied to 3PM as other stats
+- Mean, median, std dev calculations
+- Anomaly threshold: |x - μ| > 2σ
+
+**User Impact**:
+- Complete picture of shooting performance
+- Can track hot/cold 3-point streaks
+- Identifies exceptional shooting games
+
+---
+
+### Alpha Impact Visualizer (Implemented: October 20, 2025)
+
+**Feature**: "Show α Impact" checkbox to compare weighted vs unweighted probabilities
+
+**User Feedback**: "When I change alpha, it doesn't seem to change much"
+
+**Implementation Details**:
+- **UI Element**: Checkbox next to "Simple View" toggle
+- **Display**: Table comparing:
+  - Unweighted (α=1.00) - simple average
+  - Weighted (α=current) - recency-weighted
+  - Difference - shows alpha's actual effect
+  - Impact indicator - 🔥 Hot / ❄️ Cold / ⚖️ Neutral
+
+**Impact Thresholds**:
+- < 3% difference: Low impact (consistent performance)
+- 3-10% difference: Moderate impact (some trend)
+- > 10% difference: High impact (strong recent trend)
+
+**Technical Changes**:
+- `app.py`: Lines 1457, 1460-1496 - Added impact comparison logic
+- Shows both `frequency` and `weighted_frequency` from model results
+- Calculates absolute differences and categorizes impact
+
+**Formula**:
+```
+Impact = weighted_freq - unweighted_freq
+weighted_freq = Σ(w[i] × exceeds[i]) where w[i] = α^(N-i-1) / Σ(α^j)
+unweighted_freq = (1/N) × Σ(exceeds[i])
+```
+
+**Assumptions**:
+- Large difference indicates recent performance differs from historical
+- Users want to see if alpha adjustment is meaningful
+- Educational tool to understand recency weighting
+
+**User Impact**:
+- Transparency about whether alpha matters for specific player
+- Educational - shows how the model works
+- Helps users decide optimal alpha setting
+
+---
+
+### Enhanced Tooltips with User-Friendly Explanations (Implemented: October 20, 2025)
+
+**Feature**: Educational tooltips for all advanced settings
+
+**User Feedback**: "Users won't remember what alpha means or care about technical details"
+
+**Implementation**:
+- **Recency Weight (α) Tooltip**:
+  - `🔥 0.50-0.75: Hot streak | ⚖️ 0.85 (Default): Balanced | 📊 1.00: Pure average`
+  - Single line, emojis for quick understanding
+  
+- **Career Phase Tooltips**:
+  - `🌱 Young: Trust growth | ⭐ Prime: Most reliable | 🌅 Aging: Trust recent form`
+  - Concise, role-based guidance
+
+- **Threshold Tooltips**:
+  - Example-based: "Set to 25 → Predicts probability of scoring OVER 25 points"
+  - No technical jargon
+
+**Technical Details**:
+- All tooltips use single-line format with pipe separators
+- Removed multi-line explanations (browser compatibility issues)
+- Removed position-based ranges (cluttered)
+
+**User Impact**:
+- Instant understanding without reading documentation
+- Examples show real-world usage
+- No technical knowledge required
+
+---
+
+### Opponent-Specific Analysis (Implemented: October 18, 2025)
+
+**Feature**: Filter predictions based on performance vs specific opponent teams
+
+**Implementation Details**:
+- **Game Loading**: Changed from 20 games to ALL games from selected season (up to 100)
+- **Opponent Search**: Autocomplete search by team name, city, or abbreviation
+  - Example: Type "L" → Shows Lakers (LAL), Clippers (LAC)
+  - Example: Type "Warriors" → Shows Golden State Warriors (GSW)
+- **Filtering Logic**: Uses ALL games vs selected opponent from the season
+  - If Stephen Curry 2024-2025 vs Lakers → finds all LAL games from 2024-2025
+  - Typically 3-4 games per opponent per season
+- **Sample Size Warnings**:
+  - ⚠️ Warning if < 3 games
+  - 🚨 Error if < 2 games
+  - Recommends using general prediction for small samples
+
+**Technical Changes**:
+- `app.py`: Line 714, 616, 804 - Changed `limit=20` to `limit=100`
+- `app.py`: Lines 1262-1282 - Removed "last 3 games" limit, uses ALL opponent games
+- `nba_api.py`: Lines 449-461 - Added `get_all_teams_details()` method
+- All predictions now based on full season data instead of recent subset
+
+**User Impact**:
+- More accurate opponent-specific predictions
+- Better historical matchup analysis
+- Transparency about sample size reliability
+
+---
+
+---
+
+## 📅 Today's Session Summary (October 20, 2025)
+
+### **Major Accomplishments:**
+
+1. ✅ **Schema-Versioned Cache System**
+   - Solved SAC opponent filter bug
+   - Auto-invalidating cache with version control
+   - Required fields validation
+
+2. ✅ **UX Simplification**
+   - 4 thresholds → 1 threshold per stat
+   - Removed Z-scores from display
+   - Removed confidence labels
+   - Simplified fatigue analysis to minutes only
+
+3. ✅ **Enhanced Features**
+   - Team autocomplete (type "L" → see Lakers, Clippers)
+   - Alpha impact visualizer
+   - 3PM stats in Season Report
+   - Debug mode for troubleshooting
+
+4. ✅ **Documentation Consolidation**
+   - 23 files → 6 files (74% reduction)
+   - Created DEVELOPER_GUIDE.md
+   - Created CHANGELOG.md
+   - Cleaned duplicates and outdated docs
+
+5. ✅ **Code Cleanup**
+   - Removed unused imports
+   - Deleted unused files (charts.py, backups, examples)
+   - Updated this specification
+
+### **Impact:**
+- Opponent filter works correctly (SAC, LAL, all teams)
+- Cleaner, more user-friendly interface
+- Professional documentation structure
+- Maintainable codebase
+
+---
+
 ## 🧩 End Objective
 ✅ **ACHIEVED**: Delivered a statistically grounded NBA performance predictor that quantifies regression likelihood per player and visualizes trends interactively.
 
-**Current Status**: Production-ready Streamlit application with comprehensive statistical modeling, player comparison, favorites management, and data export capabilities.
+**Current Status** (October 20, 2025): 
+- Production-ready Streamlit application
+- Schema-versioned caching system
+- Comprehensive statistical modeling
+- Player comparison and opponent-specific analysis
+- Simplified UX with advanced features
+- Favorites management and prediction tracking
+- Data export capabilities
+- Clean, consolidated documentation
 
 **Foundation Established For**:
 - Future predictive and simulation-based analytics
 - Machine learning model integration
+- Player news integration (designed, on hold)
 - React/TypeScript frontend migration
 - Multi-sport expansion
 - Real-time game predictions

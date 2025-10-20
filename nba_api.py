@@ -7,8 +7,15 @@ from datetime import datetime, timedelta
 from database import NBADatabase
 from logger import get_logger
 import config
+from cache_sqlite import (
+    init_db, cache_key, get_cached, set_cached, clear_cache,
+    validate_games_schema, SCHEMA_VER
+)
 
 logger = get_logger(__name__)
+
+# Initialize cache database
+init_db()
 
 class NBAAPIClient:
     """Client for interacting with the balldontlie.io NBA API"""
@@ -253,23 +260,29 @@ class NBAAPIClient:
             return None
     
     def get_recent_games(self, player_id: int, limit: int = 20, season: int = None, postseason: bool = False) -> List[Dict]:
-        """Get recent games for a player"""
+        """Get recent games for a player with schema-versioned caching"""
         try:
             # If no season specified, use current season
             if season is None:
                 current_year = datetime.now().year
                 season = current_year if datetime.now().month >= 10 else current_year - 1
             
-            # Try cache first with season filter
-            cached_games = self.db.get_game_stats(player_id, limit, season=season, postseason=postseason)
-            if cached_games and len(cached_games) >= min(5, limit):
-                # Filter cached games too - only return games where player actually played
-                filtered_cached = self._filter_played_games(cached_games)
-                if len(filtered_cached) >= min(5, limit):
-                    self.cache_hit_count += 1
-                    logger.debug(f"Cache hit: recent games for player {player_id}, season {season}")
-                    return filtered_cached[:limit]
-                # If not enough played games in cache, fetch fresh data below
+            # Generate cache key
+            namespace = "balldontlie:games"
+            cache_params = {
+                "player_id": player_id,
+                "season": season,
+                "postseason": postseason,
+                "limit": limit
+            }
+            key = cache_key(namespace, cache_params, SCHEMA_VER)
+            
+            # Try cache first
+            cached = get_cached(key)
+            if cached:
+                self.cache_hit_count += 1
+                logger.debug(f"Cache hit: recent games for player {player_id}, season {season}")
+                return cached.get("games", [])[:limit]
             
             # Fetch from API for specific season - stats endpoint REQUIRES array notation
             # Request MORE games than limit to ensure we get the most recent ones after sorting
@@ -281,16 +294,58 @@ class NBAAPIClient:
             }
             
             response = self._make_request("stats", params)
-            games = response.get('data', [])
+            raw_games = response.get('data', [])
+            
+            # Normalize games to include required schema fields
+            normalized_games = []
+            for raw_game in raw_games:
+                game_info = raw_game.get('game', {})
+                
+                # Create normalized game with required fields for schema validation
+                normalized = {
+                    # Required fields for cache_sqlite schema
+                    "id": game_info.get("id"),
+                    "date": game_info.get("date"),
+                    "home_team_id": game_info.get("home_team_id"),
+                    "visitor_team_id": game_info.get("visitor_team_id"),
+                    
+                    # Preserve all original data for compatibility
+                    "game": game_info,
+                    "team": raw_game.get("team", {}),
+                    "pts": raw_game.get("pts", 0),
+                    "reb": raw_game.get("reb", 0),
+                    "ast": raw_game.get("ast", 0),
+                    "min": raw_game.get("min", "0"),
+                    "fg_pct": raw_game.get("fg_pct", 0),
+                    "fg3m": raw_game.get("fg3m", 0),
+                    "fg3a": raw_game.get("fg3a", 0),
+                    "stl": raw_game.get("stl", 0),
+                    "blk": raw_game.get("blk", 0),
+                    "turnover": raw_game.get("turnover", 0),
+                }
+                normalized_games.append(normalized)
+            
+            # Validate schema
+            try:
+                validate_games_schema(normalized_games)
+            except ValueError as e:
+                logger.error(f"Schema validation failed: {e}")
+                # Clear cache and don't cache invalid data
+                clear_cache()
+                # Return empty if schema fails - don't propagate bad data
+                return []
             
             # Filter out games where player didn't play (DNP, injured, etc.)
-            played_games = self._filter_played_games(games)
+            played_games = self._filter_played_games(normalized_games)
             
             # Sort by date descending to get most recent games first
             played_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
             
-            # Cache ALL games (including DNP) for the season
-            self.db.cache_game_stats(player_id, games, postseason=postseason)
+            # Cache the validated games
+            payload = {"games": played_games}
+            set_cached(key, payload, SCHEMA_VER)
+            
+            logger.info(f"Cached {len(played_games)} games for player {player_id}, season {season}")
             
             # Return only the requested number of most recent PLAYED games
             return played_games[:limit]
@@ -445,3 +500,32 @@ class NBAAPIClient:
         except Exception as e:
             logger.error(f"Error fetching teams: {e}", exc_info=True)
             return {}
+    
+    def get_all_teams_details(self) -> List[Dict]:
+        """
+        Get all NBA teams with full details (name, abbreviation, city, etc.)
+        Returns a list of team dictionaries for autocomplete/search
+        """
+        # Generate cache key for teams
+        namespace = "balldontlie:teams"
+        key = cache_key(namespace, {}, "teams:v1")
+        
+        # Try cache first (24 hour TTL for teams - they rarely change)
+        cached = get_cached(key, max_age_s=86400)
+        if cached:
+            logger.debug("Cache hit: teams data")
+            return cached.get("teams", [])
+        
+        try:
+            response = self._make_request("teams", params={"per_page": 100})
+            teams = response.get('data', [])
+            
+            # Cache the teams data
+            payload = {"teams": teams}
+            set_cached(key, payload, "teams:v1")
+            
+            logger.info(f"Loaded {len(teams)} teams with full details")
+            return teams
+        except Exception as e:
+            logger.error(f"Error fetching team details: {e}", exc_info=True)
+            return []

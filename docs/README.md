@@ -1,79 +1,73 @@
-# Documentation Index
+# 📚 Documentation Directory
 
-**NBA Performance Predictor - Complete Documentation**
-
-Last Updated: October 18, 2025
+**HoopsInsight - NBA Performance Predictor Documentation**
 
 ---
 
-## 📚 Documentation Files
+## 📖 Core Documentation
 
-### **Getting Started**
-- **[TESTING.md](TESTING.md)** - How to test the application
-- **[TROUBLESHOOTING_PAGES.md](TROUBLESHOOTING_PAGES.md)** - Debug and fix common issues
+All documentation has been consolidated into **4 core documents** in the root directory:
 
-### **Features & Improvements**
-- **[IMPROVEMENTS.md](IMPROVEMENTS.md)** - Complete feature changelog
-- **[PREDICTION_HISTORY_SUMMARY.md](PREDICTION_HISTORY_SUMMARY.md)** - Prediction tracking feature
-- **[SEASON_REPORT_SUMMARY.md](SEASON_REPORT_SUMMARY.md)** - Season report feature
-- **[LAMBDA_ADVISOR_UI.md](LAMBDA_ADVISOR_UI.md)** - AI lambda advisor
+### **1. README.md** (Root)
+**For Users** - Getting started, features, usage
 
-### **Architecture & Design**
-- **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Repository organization
-- **[DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md)** - Complete database documentation
-- **[DATABASE_DIAGRAM.md](DATABASE_DIAGRAM.md)** - Visual database diagrams
-- **[REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)** - Code modularization
+[📄 View README.md](../README.md)
 
-### **Technical Details**
-- **[SEASON_REPORT_INDEPENDENCE.md](SEASON_REPORT_INDEPENDENCE.md)** - Page independence design
-- **[FIXES_APPLIED.md](FIXES_APPLIED.md)** - Bug fixes and solutions
-- **[CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)** - Repository reorganization
+### **2. DEVELOPER_GUIDE.md** (Root)  
+**For Developers** - Architecture, API, database, testing
 
----
+[🔧 View DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md)
 
-## 🎯 Quick Links by Role
+### **3. CHANGELOG.md** (Root)
+**For Everyone** - Feature history, updates, breaking changes
 
-### **For New Users:**
-1. Start with main [README.md](../README.md) in root
-2. Read [TESTING.md](TESTING.md) to run the app
-3. Explore features in [IMPROVEMENTS.md](IMPROVEMENTS.md)
+[📝 View CHANGELOG.md](../CHANGELOG.md)
 
-### **For Developers:**
-1. Understand structure: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-2. Database design: [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md)
-3. Code organization: [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)
-4. Run tests: [TESTING.md](TESTING.md)
+### **4. nba-stats-mvp.md** (attached_assets/)
+**Master Specification** - Mathematical models, formulas, requirements
 
-### **For Feature Understanding:**
-1. What's new: [IMPROVEMENTS.md](IMPROVEMENTS.md)
-2. Prediction tracking: [PREDICTION_HISTORY_SUMMARY.md](PREDICTION_HISTORY_SUMMARY.md)
-3. Season analysis: [SEASON_REPORT_SUMMARY.md](SEASON_REPORT_SUMMARY.md)
-4. AI advisor: [LAMBDA_ADVISOR_UI.md](LAMBDA_ADVISOR_UI.md)
-
-### **For Troubleshooting:**
-1. Common issues: [TROUBLESHOOTING_PAGES.md](TROUBLESHOOTING_PAGES.md)
-2. Recent fixes: [FIXES_APPLIED.md](FIXES_APPLIED.md)
+[🎯 View nba-stats-mvp.md](../attached_assets/nba-stats-mvp.md)
 
 ---
 
-## 📊 Documentation Statistics
+## 🎯 Quick Links
 
-- **Total Documents:** 13
-- **Total Lines:** ~4000+
-- **Coverage:** Features, architecture, testing, troubleshooting
-- **Format:** Markdown with diagrams and examples
+### For New Users:
+1. [README.md](../README.md) - Start here!
+2. [CHANGELOG.md](../CHANGELOG.md) - See what's new
 
----
+### For Developers:
+1. [DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md) - Technical details
+2. [nba-stats-mvp.md](../attached_assets/nba-stats-mvp.md) - Mathematical spec
+3. [tests/README.md](../tests/README.md) - Testing guide
 
-## 🔄 Keeping Documentation Updated
-
-When adding new features:
-1. Update [IMPROVEMENTS.md](IMPROVEMENTS.md)
-2. Create feature summary (e.g., NEW_FEATURE_SUMMARY.md)
-3. Update [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) if structure changes
-4. Update main README.md in root
+### For Feature Understanding:
+1. [CHANGELOG.md](../CHANGELOG.md) - Feature history
+2. [README.md](../README.md) - Current features
 
 ---
 
-**All documentation is centralized here for easy access!** 📚
+## 🔄 Documentation Policy
 
+**Following Cursor Rules:**
+- Always read `nba-stats-mvp.md` before coding
+- Document CLI flags, formulas, and assumptions
+- Update docs after major features or model changes
+
+**Update Guidelines:**
+- User-facing features → Update README.md
+- Technical changes → Update DEVELOPER_GUIDE.md  
+- Any feature/fix → Add to CHANGELOG.md
+- Model/formula changes → Update nba-stats-mvp.md
+
+---
+
+## 📊 Status
+
+**Documentation Files:** 4 core (was 20+)
+**Consolidation:** ✅ Complete
+**Last Updated:** October 20, 2025
+
+---
+
+**All documentation is now clean, organized, and easy to find!** 📚

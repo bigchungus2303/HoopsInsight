@@ -189,6 +189,9 @@ def calculate_optimal_lambda(player, career_stats, recent_games, season_stats, c
 
 def show_lambda_advisor(player, career_stats, recent_games, season_stats, career_phase):
     """
+    DEPRECATED: UI display is now handled in app.py.
+    Use calculate_optimal_lambda() instead.
+    
     Calculate and return lambda recommendations.
     UI display is handled in app.py for cleaner layout.
     

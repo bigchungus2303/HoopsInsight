@@ -10,22 +10,16 @@ from datetime import datetime, timedelta
 from nba_api import NBAAPIClient
 from statistics import StatisticsEngine
 from models import InverseFrequencyModel
-from export_utils import (export_player_stats_csv, export_player_stats_json,
-                          export_probability_analysis_csv, export_comparison_csv,
-                          export_comparison_json)
+from export_utils import export_player_stats_csv, export_player_stats_json
 from database import NBADatabase
-from error_handler import (safe_api_call, show_loading, validate_player_data,
-                           show_connection_status, handle_empty_data, show_data_quality_warning)
+from error_handler import safe_api_call, show_loading, show_data_quality_warning
 
 # Import modular components
 from components.api_dashboard import show_api_dashboard
 from components.advanced_settings import show_advanced_settings
 from components.prediction_cards import show_all_predictions
 from components.simple_prediction_cards import show_simple_predictions, show_betting_summary
-from components.charts import (create_recent_games_chart, create_probability_bar_chart,
-                               create_fatigue_chart, create_minutes_trend_chart,
-                               create_comparison_chart)
-from components.lambda_advisor import show_lambda_advisor, calculate_optimal_lambda
+from components.lambda_advisor import calculate_optimal_lambda
 
 # Import pages (functions now defined inline)
 # from pages.prediction_history import show_prediction_history_page
@@ -248,7 +242,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
     # Line Charts
     st.subheader("📈 Performance Trends")
     
-    for stat in ['pts', 'reb', 'ast']:
+    for stat in ['pts', 'reb', 'ast', 'fg3m']:
         fig = go.Figure()
         
         fig.add_trace(go.Scatter(
@@ -287,11 +281,11 @@ def show_season_report_page(api_client, stats_engine, player_data):
         st.subheader("📊 Monthly Comparison")
         
         filtered_df['month'] = filtered_df['date'].dt.to_period('M').astype(str)
-        monthly_avg = filtered_df.groupby('month')[['pts', 'reb', 'ast']].mean().reset_index()
+        monthly_avg = filtered_df.groupby('month')[['pts', 'reb', 'ast', 'fg3m']].mean().reset_index()
         
         fig = go.Figure()
         
-        for stat in ['pts', 'reb', 'ast']:
+        for stat in ['pts', 'reb', 'ast', 'fg3m']:
             fig.add_trace(go.Bar(
                 x=monthly_avg['month'],
                 y=monthly_avg[stat],
@@ -326,7 +320,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
             })
         
         # Check for statistical outliers (> 2 std dev)
-        for stat in ['pts', 'reb', 'ast']:
+        for stat in ['pts', 'reb', 'ast', 'fg3m']:
             mean = filtered_df[stat].mean()
             std = filtered_df[stat].std()
             
@@ -613,7 +607,7 @@ with st.sidebar:
                                 recent_games = safe_api_call(
                                     api_client.get_recent_games,
                                     player['id'],
-                                    limit=20, season=fav_season, postseason=fav_is_postseason,
+                                    limit=100, season=fav_season, postseason=fav_is_postseason,
                                     default_return=[]
                                 )
                                 career_stats = safe_api_call(
@@ -711,7 +705,7 @@ with st.sidebar:
                         recent_games = safe_api_call(
                             api_client.get_recent_games,
                             player['id'],
-                            limit=20, season=selected_season, postseason=is_postseason,
+                            limit=100, season=selected_season, postseason=is_postseason,
                             default_return=[],
                             error_message=f"Unable to load recent games for {player_full_name}"
                         )
@@ -801,7 +795,7 @@ with st.sidebar:
                         comp_recent_games = safe_api_call(
                             api_client.get_recent_games,
                             comp_player['id'],
-                            limit=20, season=comp_season, postseason=comp_is_postseason,
+                            limit=100, season=comp_season, postseason=comp_is_postseason,
                             default_return=[]
                         )
                         comp_career_stats = safe_api_call(
@@ -854,11 +848,11 @@ if st.session_state.player_data is None:
     ### Features:
     - **Player Search**: Find NBA players with autocomplete
     - **Season Statistics**: View per-game averages with z-score normalization
-    - **Recent Performance**: Analyze last 20 games with trend visualization
+    - **Recent Performance**: Analyze all games from selected season with trend visualization
     - **Inverse-Frequency Model**: Calculate regression-to-mean probabilities
     - **Career Phase Weighting**: Adjust for early/peak/late career phases
     - **Player Comparison**: Side-by-side statistical analysis
-    - **Fatigue Analysis**: Detect performance sustainability patterns
+    - **Minutes Trend Analysis**: Track playing time patterns and sustainability
     """)
 else:
     player_info = st.session_state.player_data
@@ -906,7 +900,7 @@ else:
     
     st.divider()
     
-    # Season Statistics with Z-Score Normalization
+    # Season Statistics
     display_season = st.session_state.get('selected_season', 2024)
     display_season_formatted = f"{display_season}-{display_season+1}"
     display_is_postseason = st.session_state.get('is_postseason', False)
@@ -973,32 +967,25 @@ else:
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Points per Game", f"{safe_float(season_stats['pts']):.1f}", 
-                     f"Z-Score: {normalized_stats['pts_z'][0]:.2f}")
-            st.metric("Field Goal %", f"{safe_float(season_stats['fg_pct']):.3f}", 
-                     f"Z-Score: {normalized_stats['fg_pct_z'][0]:.2f}")
+            st.metric("Points per Game", f"{safe_float(season_stats['pts']):.1f}")
+            st.metric("Field Goal %", f"{safe_float(season_stats['fg_pct']):.3f}")
         
         with col2:
-            st.metric("Rebounds per Game", f"{safe_float(season_stats['reb']):.1f}",
-                     f"Z-Score: {normalized_stats['reb_z'][0]:.2f}")
-            st.metric("3-Point %", f"{safe_float(season_stats['fg3_pct']):.3f}",
-                     f"Z-Score: {normalized_stats['fg3_pct_z'][0]:.2f}")
+            st.metric("Rebounds per Game", f"{safe_float(season_stats['reb']):.1f}")
+            st.metric("3-Point %", f"{safe_float(season_stats['fg3_pct']):.3f}")
         
         with col3:
-            st.metric("Assists per Game", f"{safe_float(season_stats['ast']):.1f}",
-                     f"Z-Score: {normalized_stats['ast_z'][0]:.2f}")
-            st.metric("Free Throw %", f"{safe_float(season_stats['ft_pct']):.3f}",
-                     f"Z-Score: {normalized_stats['ft_pct_z'][0]:.2f}")
+            st.metric("Assists per Game", f"{safe_float(season_stats['ast']):.1f}")
+            st.metric("Free Throw %", f"{safe_float(season_stats['ft_pct']):.3f}")
         
         with col4:
-            st.metric("Minutes per Game", f"{parse_minutes(season_stats['min']):.1f}",
-                     f"Z-Score: {normalized_stats['min_z'][0]:.2f}")
+            st.metric("Minutes per Game", f"{parse_minutes(season_stats['min']):.1f}")
             st.metric("Games Played", f"{safe_float(season_stats['games_played'], 0):.0f}")
     else:
         st.warning(f"⚠️ No season statistics available for {display_season_formatted}. The player may not have played in this season or data is unavailable.")
     
     # Recent Game Performance
-    st.header("📈 Recent Game Performance")
+    st.header("📈 Game Performance (Selected Season)")
     
     # Data quality check
     if not show_data_quality_warning(recent_games, "recent games", min_size=5):
@@ -1058,8 +1045,10 @@ else:
             fig.add_hline(y=safe_float(season_stats['ast']), line_dash="dash", line_color="gray", row=2, col=1)
             fig.add_hline(y=parse_minutes(season_stats['min']), line_dash="dash", line_color="gray", row=2, col=2)
         
-        fig.update_layout(height=500, showlegend=False, title_text="Last 10 Games (Dashed lines = Season Average)")
+        fig.update_layout(height=500, showlegend=False, title_text="Last 10 Games from Season (Dashed lines = Season Average)")
         st.plotly_chart(fig, use_container_width=True)
+        
+        st.caption(f"ℹ️ Showing last 10 games for visualization. All {len(recent_games)} games from season loaded for analysis.")
         
         # Recent games table
         display_games = games_df[['date', 'pts', 'reb', 'ast', 'fg_pct', 'fg3m', 'min']].copy()
@@ -1067,73 +1056,48 @@ else:
         display_games.columns = ['Date', 'PTS', 'REB', 'AST', 'FG%', '3PM', 'MIN']
         st.dataframe(display_games, use_container_width=True)
     
-    # Performance Insights section removed - keeping UI simple
-    # Career Phase and Fatigue Analysis
-    st.header("⚡ Career Phase & Fatigue Analysis")
+    # Minutes Played Analysis (simplified from Career Phase & Fatigue Analysis)
+    st.header("⚡ Minutes Played Analysis")
     
     if recent_games and len(recent_games) >= 10:
+        # Flatten games data
+        flattened_games = []
+        for game in recent_games:
+            flat_game = {
+                'date': game.get('game', {}).get('date'),
+                'pts': game.get('pts'),
+                'min': game.get('min')
+            }
+            flattened_games.append(flat_game)
+        
+        games_df = pd.DataFrame(flattened_games)
+        games_df['date'] = pd.to_datetime(games_df['date'])
+        games_df = games_df.sort_values('date')
+        
+        # Analyze minutes played trend
+        minutes_trend = model.analyze_minutes_trend(games_df)
+        
+        # Minutes Trend Chart
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=games_df.index, y=games_df['min'],
+                               mode='lines+markers', name='Minutes Played'))
+        
+        if minutes_trend['declining_trend']:
+            fig.add_annotation(text="⚠️ Declining Minutes Detected", 
+                             x=0.5, y=0.9, xref="paper", yref="paper",
+                             showarrow=False, bgcolor="yellow")
+        
+        fig.update_layout(title="Minutes Played Trend", height=400)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Insights
         col1, col2 = st.columns(2)
-        
         with col1:
-            st.subheader("Fatigue/Load Curve")
-            
-            # Flatten games data
-            flattened_fatigue_games = []
-            for game in recent_games:
-                flat_game = {
-                    'date': game.get('game', {}).get('date'),
-                    'pts': game.get('pts'),
-                    'min': game.get('min')
-                }
-                flattened_fatigue_games.append(flat_game)
-            
-            games_df = pd.DataFrame(flattened_fatigue_games)
-            games_df['date'] = pd.to_datetime(games_df['date'])
-            games_df = games_df.sort_values('date')
-            
-            # Calculate rolling averages
-            rolling_10 = games_df['pts'].rolling(window=10, min_periods=5).mean()
-            long_term_mean = games_df['pts'].mean()
-            
-            fatigue_analysis = model.analyze_fatigue_curve(games_df, window_size=10)
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=games_df.index, y=games_df['pts'], 
-                                   mode='markers', name='Game Points', opacity=0.6))
-            fig.add_trace(go.Scatter(x=games_df.index, y=rolling_10,
-                                   mode='lines', name='10-Game Rolling Average'))
-            fig.add_hline(y=long_term_mean, line_dash="dash", 
-                         annotation_text=f"Long-term Mean: {long_term_mean:.1f}")
-            
-            if fatigue_analysis['regression_risk'] > 0.5:
-                fig.add_annotation(x=len(games_df)-1, y=games_df['pts'].iloc[-1],
-                                 text=f"High Regression Risk: {fatigue_analysis['regression_risk']:.2f}",
-                                 showarrow=True, arrowcolor="red")
-            
-            fig.update_layout(title="Points Fatigue Analysis", height=350)
-            st.plotly_chart(fig, use_container_width=True)
-        
+            st.metric("Minutes Trend", 
+                     "📉 Declining" if minutes_trend['declining_trend'] else "📊 Stable")
         with col2:
-            st.subheader("Minutes Trend Filter")
-            
-            # Analyze minutes played trend
-            minutes_trend = model.analyze_minutes_trend(games_df)
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=games_df.index, y=games_df['min'],
-                                   mode='lines+markers', name='Minutes Played'))
-            
-            if minutes_trend['declining_trend']:
-                fig.add_annotation(text="Declining Minutes Detected", 
-                                 x=0.5, y=0.9, xref="paper", yref="paper",
-                                 showarrow=False, bgcolor="yellow")
-            
-            fig.update_layout(title="Minutes Played Trend", height=350)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            st.metric("Minutes Trend", "Declining" if minutes_trend['declining_trend'] else "Stable",
-                     f"Slope: {minutes_trend['trend_slope']:.2f}")
-            st.metric("Sustainability Factor", f"{minutes_trend['sustainability_factor']:.3f}")
+            st.metric("Sustainability Factor", 
+                     f"{minutes_trend['sustainability_factor']:.3f}")
     
     # Next Game Predictions
     st.header("🔮 Next Game Predictions")
@@ -1149,15 +1113,72 @@ else:
         
         if filter_by_opponent:
             with col2:
-                # Text input for opponent team abbreviation
-                opponent_team_input = st.text_input(
-                    "Enter Opponent Team (e.g., LAL, BOS, GSW)",
-                    placeholder="Type team abbreviation...",
-                    help="Enter the 3-letter team abbreviation for the next opponent",
-                    key="opponent_team_input"
-                )
+                # Debug option and cache management
+                col_debug1, col_debug2 = st.columns(2)
+                with col_debug1:
+                    show_debug = st.checkbox("🔍 Show Debug Info", value=False, help="Show detailed debugging information about loaded games")
+                with col_debug2:
+                    if st.button("🔄 Clear Cache", help="Clear ALL cached data (games, teams) and reload fresh from API"):
+                        from cache_sqlite import clear_cache
+                        clear_cache()
+                        st.success("✅ Cache cleared! All cached data removed.")
+                        st.info("💡 Click 'Load Player Data' in the sidebar to fetch fresh data with correct team information.")
                 
-                # Get team lookup and show available teams from history as reference
+                # Get all NBA teams for autocomplete
+                all_teams = api_client.get_all_teams_details()
+                
+                # Create searchable team options
+                if all_teams:
+                    # Text input for search
+                    opponent_search = st.text_input(
+                        "Search Team",
+                        placeholder="Type team name or abbreviation (e.g., Lakers, LAL)...",
+                        help="Search for the opponent team",
+                        key="opponent_search_input"
+                    )
+                    
+                    # Filter teams based on search input
+                    if opponent_search and len(opponent_search) >= 1:
+                        search_lower = opponent_search.lower()
+                        filtered_teams = [
+                            team for team in all_teams
+                            if (search_lower in team.get('abbreviation', '').lower() or
+                                search_lower in team.get('full_name', '').lower() or
+                                search_lower in team.get('name', '').lower() or
+                                search_lower in team.get('city', '').lower())
+                        ]
+                        
+                        if filtered_teams:
+                            # Create dropdown with filtered teams
+                            team_options = {
+                                f"{team['full_name']} ({team['abbreviation']})": team['abbreviation']
+                                for team in filtered_teams
+                            }
+                            
+                            selected_team_display = st.selectbox(
+                                "Select Team",
+                                options=list(team_options.keys()),
+                                key="opponent_team_selector"
+                            )
+                            
+                            opponent_team_input = team_options[selected_team_display]
+                        else:
+                            st.info("No teams found. Try a different search term.")
+                            opponent_team_input = None
+                    else:
+                        opponent_team_input = None
+                        if not opponent_search:
+                            st.caption("💡 Type at least 1 character to search")
+                else:
+                    # Fallback to old text input if API fails
+                    opponent_team_input = st.text_input(
+                        "Enter Opponent Team (e.g., LAL, BOS, GSW)",
+                        placeholder="Type team abbreviation...",
+                        help="Enter the 3-letter team abbreviation for the next opponent",
+                        key="opponent_team_input_fallback"
+                    )
+                
+                # Show teams from player's game history as reference
                 teams_lookup = api_client.get_teams()
                 opponents_set = set()
                 for game in recent_games:
@@ -1183,11 +1204,14 @@ else:
                 opponents_list = sorted(list(opponents_set))
                 
                 if opponents_list:
-                    st.caption(f"💡 Teams from history: {', '.join(opponents_list[:10])}")
+                    st.caption(f"📊 Player faced: {', '.join(opponents_list[:10])}")
             
             # Process opponent filter when user enters a team
             if opponent_team_input and len(opponent_team_input.strip()) > 0:
                 opponent_team = opponent_team_input.strip().upper()
+                
+                # Debug info collection
+                debug_info = []
                 
                 # Filter games to only those against entered opponent (sorted by date, most recent first)
                 opponent_games = []
@@ -1210,25 +1234,58 @@ else:
                     # Look up opponent abbreviation
                     game_opponent = teams_lookup.get(opponent_id, 'N/A') if opponent_id else 'N/A'
                     
+                    # Collect debug info
+                    if show_debug:
+                        debug_info.append({
+                            'date': game_info.get('date', 'N/A'),
+                            'player_team_id': player_team_id,
+                            'home_team_id': home_team_id,
+                            'visitor_team_id': visitor_team_id,
+                            'opponent_id': opponent_id,
+                            'opponent_abbr': game_opponent
+                        })
+                    
                     if game_opponent.upper() == opponent_team:
                         opponent_games.append(game)
                 
-                # Use only the last 3 games against this opponent
+                # Show debug information if enabled
+                if show_debug:
+                    with st.expander("🔍 Debug: All Loaded Games", expanded=True):
+                        st.write(f"**Total games loaded:** {len(recent_games)}")
+                        st.write(f"**Looking for opponent:** {opponent_team}")
+                        st.write(f"**Games found vs {opponent_team}:** {len(opponent_games)}")
+                        
+                        if debug_info:
+                            import pandas as pd
+                            debug_df = pd.DataFrame(debug_info)
+                            st.dataframe(debug_df, use_container_width=True)
+                        else:
+                            st.warning("No debug info collected. Make sure games are loaded.")
+                        
+                        # Show unique opponents found
+                        unique_opponents = set([info['opponent_abbr'] for info in debug_info if info['opponent_abbr'] != 'N/A'])
+                        st.write(f"**Unique opponents in loaded games:** {', '.join(sorted(unique_opponents))}")
+                
+                # Use ALL games against this opponent from the season
                 if opponent_games:
-                    # Sort by date to get most recent games
+                    # Sort by date to get most recent first
                     opponent_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
-                    filtered_recent_games = opponent_games[:3]  # Take only last 3 games
+                    filtered_recent_games = opponent_games  # Use ALL games vs opponent
                     
-                    if len(opponent_games) > 3:
-                        st.success(f"✅ Using **last 3 games** against **{opponent_team}** (found {len(opponent_games)} total)")
-                    else:
-                        st.success(f"✅ Using **{len(filtered_recent_games)} game(s)** against **{opponent_team}**")
+                    # Show success message with sample size info
+                    st.success(f"✅ Using **ALL {len(filtered_recent_games)} game(s)** vs **{opponent_team}** from selected season")
+                    
+                    # Add sample size warning if too few games
+                    if len(filtered_recent_games) < 3:
+                        st.warning(f"⚠️ **Small sample size:** Only {len(filtered_recent_games)} game(s) available. Prediction reliability may be lower. Consider using general prediction instead.")
+                    elif len(filtered_recent_games) < 2:
+                        st.error(f"🚨 **Very small sample:** Only {len(filtered_recent_games)} game available. High uncertainty in predictions!")
                 else:
                     # Check if the team abbreviation is valid by looking at the reference list
                     if opponent_team in opponents_list:
-                        st.warning(f"⚠️ **{opponent_team}** is in history but not found in the loaded {len(recent_games)} recent games. Try loading more games or check the season.")
+                        st.warning(f"⚠️ **{opponent_team}** is in history but not found in the selected season games. Try a different season or disable opponent filter.")
                     else:
-                        st.info(f"💡 No games vs **{opponent_team}** in loaded history. Predictions will use general performance across all recent games.")
+                        st.info(f"💡 No games vs **{opponent_team}** found in this season. Predictions will use general performance across all games.")
                     filtered_recent_games = recent_games  # Fall back to all games
         
         # Check if career phase decay is enabled
@@ -1241,10 +1298,10 @@ else:
         
         # Get custom thresholds and calculate probabilities
         thresholds = st.session_state.get('custom_thresholds', {
-            'pts': [10, 15, 20],
-            'reb': [4, 6, 8, 10],
-            'ast': [4, 6, 8, 10],
-            'fg3m': [2, 3, 5]
+            'pts': [20],
+            'reb': [8],
+            'ast': [6],
+            'fg3m': [3]
         })
         
         alpha = st.session_state.get('alpha', 0.85)
@@ -1355,9 +1412,50 @@ else:
             )
         
         # Display predictions - choose between technical and simplified view
-        col1, col2 = st.columns([1, 4])
+        col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
             use_simple_ui = st.toggle("🎯 Simple View", value=True, help="Switch between technical and user-friendly prediction display")
+        with col2:
+            show_alpha_impact = st.checkbox("🔍 Show α Impact", value=False, help="Compare weighted vs unweighted probabilities to see alpha effect")
+        
+        # Show alpha impact comparison if enabled
+        if show_alpha_impact:
+            st.divider()
+            st.subheader("🔍 Alpha (α) Impact Analysis")
+            st.caption(f"Current α = {alpha:.2f} | Comparing Weighted vs Unweighted Probabilities")
+            
+            impact_data = []
+            for stat, stat_results in probability_results.items():
+                stat_display = {'pts': 'Points', 'reb': 'Rebounds', 'ast': 'Assists', 'fg3m': '3-Pointers'}
+                for threshold, data in stat_results.items():
+                    weighted = data.get('weighted_frequency', 0) * 100
+                    unweighted = data.get('frequency', 0) * 100
+                    difference = weighted - unweighted
+                    
+                    impact_data.append({
+                        'Stat': stat_display.get(stat, stat),
+                        'Threshold': f"≥{threshold}",
+                        'Unweighted (α=1.00)': f"{unweighted:.1f}%",
+                        'Weighted (α={:.2f})'.format(alpha): f"{weighted:.1f}%",
+                        'Difference': f"{difference:+.1f}%",
+                        'Impact': '🔥 Hot' if difference > 10 else '❄️ Cold' if difference < -10 else '⚖️ Neutral'
+                    })
+            
+            if impact_data:
+                import pandas as pd
+                impact_df = pd.DataFrame(impact_data)
+                st.dataframe(impact_df, use_container_width=True, hide_index=True)
+                
+                # Summary
+                avg_difference = sum([abs(float(d['Difference'].replace('%','').replace('+',''))) for d in impact_data]) / len(impact_data)
+                if avg_difference < 3:
+                    st.info(f"⚖️ **Low Impact:** Average difference {avg_difference:.1f}% - Player has consistent performance. α changes won't affect predictions much.")
+                elif avg_difference < 10:
+                    st.success(f"📊 **Moderate Impact:** Average difference {avg_difference:.1f}% - α is having a noticeable effect on predictions.")
+                else:
+                    st.warning(f"🔥 **High Impact:** Average difference {avg_difference:.1f}% - Strong recent trend! α is significantly affecting predictions.")
+            
+            st.divider()
         
         if use_simple_ui:
             # Show simplified, user-friendly predictions

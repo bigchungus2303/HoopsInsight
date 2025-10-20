@@ -20,55 +20,48 @@ def show_advanced_settings():
     """
     with st.expander("⚙️ Advanced Settings"):
         st.subheader("Custom Thresholds")
-        st.caption("Use sliders to set prediction thresholds for each stat category")
+        st.caption("Set your target threshold for each stat category")
         
-        # Points thresholds - Interactive sliders
-        st.markdown("**🏀 Points Thresholds**")
-        pts_col1, pts_col2, pts_col3, pts_col4 = st.columns(4)
-        with pts_col1:
-            pts_t1 = st.slider("PTS 1", 5, 50, 10, 1, key="pts_t1", help="First points threshold")
-        with pts_col2:
-            pts_t2 = st.slider("PTS 2", 5, 50, 15, 1, key="pts_t2", help="Second points threshold")
-        with pts_col3:
-            pts_t3 = st.slider("PTS 3", 5, 50, 20, 1, key="pts_t3", help="Third points threshold")
-        with pts_col4:
-            pts_t4 = st.slider("PTS 4", 5, 50, 25, 1, key="pts_t4", help="Fourth points threshold (optional)")
+        # Single threshold per category - cleaner and simpler
+        col1, col2 = st.columns(2)
         
-        # Rebounds thresholds - Interactive sliders
-        st.markdown("**💪 Rebounds Thresholds**")
-        reb_col1, reb_col2, reb_col3, reb_col4 = st.columns(4)
-        with reb_col1:
-            reb_t1 = st.slider("REB 1", 1, 20, 4, 1, key="reb_t1", help="First rebounds threshold")
-        with reb_col2:
-            reb_t2 = st.slider("REB 2", 1, 20, 6, 1, key="reb_t2", help="Second rebounds threshold")
-        with reb_col3:
-            reb_t3 = st.slider("REB 3", 1, 20, 8, 1, key="reb_t3", help="Third rebounds threshold")
-        with reb_col4:
-            reb_t4 = st.slider("REB 4", 1, 20, 10, 1, key="reb_t4", help="Fourth rebounds threshold")
+        with col1:
+            pts_threshold = st.number_input(
+                "🏀 Points Threshold", 
+                min_value=5, 
+                max_value=50, 
+                value=20, 
+                step=1,
+                help="Set to 25 → Predicts probability of scoring OVER 25 points"
+            )
+            
+            reb_threshold = st.number_input(
+                "💪 Rebounds Threshold", 
+                min_value=1, 
+                max_value=20, 
+                value=8, 
+                step=1,
+                help="Set to 10 → Predicts probability of grabbing OVER 10 rebounds"
+            )
         
-        # Assists thresholds - Interactive sliders
-        st.markdown("**🎯 Assists Thresholds**")
-        ast_col1, ast_col2, ast_col3, ast_col4 = st.columns(4)
-        with ast_col1:
-            ast_t1 = st.slider("AST 1", 1, 20, 4, 1, key="ast_t1", help="First assists threshold")
-        with ast_col2:
-            ast_t2 = st.slider("AST 2", 1, 20, 6, 1, key="ast_t2", help="Second assists threshold")
-        with ast_col3:
-            ast_t3 = st.slider("AST 3", 1, 20, 8, 1, key="ast_t3", help="Third assists threshold")
-        with ast_col4:
-            ast_t4 = st.slider("AST 4", 1, 20, 10, 1, key="ast_t4", help="Fourth assists threshold")
-        
-        # 3-pointers thresholds - Interactive sliders
-        st.markdown("**🎯 3-Pointers Thresholds**")
-        fg3m_col1, fg3m_col2, fg3m_col3, fg3m_col4 = st.columns(4)
-        with fg3m_col1:
-            fg3m_t1 = st.slider("3PM 1", 0, 15, 2, 1, key="fg3m_t1", help="First 3-pointers threshold")
-        with fg3m_col2:
-            fg3m_t2 = st.slider("3PM 2", 0, 15, 3, 1, key="fg3m_t2", help="Second 3-pointers threshold")
-        with fg3m_col3:
-            fg3m_t3 = st.slider("3PM 3", 0, 15, 5, 1, key="fg3m_t3", help="Third 3-pointers threshold")
-        with fg3m_col4:
-            fg3m_t4 = st.slider("3PM 4", 0, 15, 7, 1, key="fg3m_t4", help="Fourth 3-pointers threshold (optional)")
+        with col2:
+            ast_threshold = st.number_input(
+                "🎯 Assists Threshold", 
+                min_value=1, 
+                max_value=20, 
+                value=6, 
+                step=1,
+                help="Set to 8 → Predicts probability of dishing OVER 8 assists"
+            )
+            
+            fg3m_threshold = st.number_input(
+                "🎯 3-Pointers Threshold", 
+                min_value=0, 
+                max_value=15, 
+                value=3, 
+                step=1,
+                help="Set to 4 → Predicts probability of making OVER 4 three-pointers"
+            )
         
         st.divider()
         
@@ -79,7 +72,7 @@ def show_advanced_settings():
             max_value=1.0, 
             value=0.85, 
             step=0.05,
-            help="Higher values give more weight to recent games"
+            help="🔥 0.50-0.75: Hot streak  |  ⚖️ 0.85 (Default): Balanced  |  📊 1.00: Pure average"
         )
         
         st.divider()
@@ -88,7 +81,7 @@ def show_advanced_settings():
         use_career_phase = st.checkbox(
             "🤖 Enable AI-Powered Career Phase Analysis",
             value=False,
-            help="Auto-adjusts predictions based on player's career stage (early/peak/late)"
+            help="🌱 Young: Trust growth  |  ⭐ Prime: Most reliable  |  🌅 Aging: Trust recent form"
         )
         
         if not use_career_phase:
@@ -109,7 +102,7 @@ def show_advanced_settings():
                     max_value=0.10,
                     value=current_lambda_early,
                     step=0.01,
-                    help="Lower = trust potential, Higher = weight recent form",
+                    help="Lower = trust growth  |  Higher = recent form  |  Typical: 0.02",
                     key="lambda_early_slider"
                 )
                 
@@ -119,7 +112,7 @@ def show_advanced_settings():
                     max_value=0.15,
                     value=current_lambda_peak,
                     step=0.01,
-                    help="Balanced weighting for consistent performers",
+                    help="Balanced weighting for prime years  |  Typical: 0.05",
                     key="lambda_peak_slider"
                 )
                 
@@ -129,7 +122,7 @@ def show_advanced_settings():
                     max_value=0.25,
                     value=current_lambda_late,
                     step=0.01,
-                    help="Higher = focus on recent form vs career average",
+                    help="Higher = trust recent form over career average  |  Typical: 0.08",
                     key="lambda_late_slider"
                 )
                 
@@ -145,13 +138,12 @@ def show_advanced_settings():
         st.session_state.lambda_peak_value = lambda_peak
         st.session_state.lambda_late_value = lambda_late
         
-        # Collect threshold values from sliders and sort them
-        # Remove duplicates and sort for consistent ordering
+        # Store single threshold per category as a list for compatibility
         st.session_state.custom_thresholds = {
-            'pts': sorted(list(set([pts_t1, pts_t2, pts_t3, pts_t4]))),
-            'reb': sorted(list(set([reb_t1, reb_t2, reb_t3, reb_t4]))),
-            'ast': sorted(list(set([ast_t1, ast_t2, ast_t3, ast_t4]))),
-            'fg3m': sorted(list(set([fg3m_t1, fg3m_t2, fg3m_t3, fg3m_t4])))
+            'pts': [pts_threshold],
+            'reb': [reb_threshold],
+            'ast': [ast_threshold],
+            'fg3m': [fg3m_threshold]
         }
         st.session_state.alpha = alpha_value
         st.session_state.use_career_phase = use_career_phase
