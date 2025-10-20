@@ -492,7 +492,7 @@ with col_feedback:
                     # Create mailto link with sanitized content
                     subject = "HoopsInsight Feedback"
                     body = f"From: {safe_name}\nEmail: {safe_email}\n\nMessage:\n{safe_message}"
-                    
+
                     # URL encode properly
                     import urllib.parse
                     encoded_subject = urllib.parse.quote(subject)
@@ -500,9 +500,12 @@ with col_feedback:
                     
                     # Show success and mailto link
                     st.success("✅ Thank you! Click below to send via your email client:")
-                    mailto_link = f"mailto:miniman9955@gmail.com?subject={encoded_subject}&body={encoded_body}"
+                    mailto_link = f"mailto:sam@aeo-insights.com?subject={encoded_subject}&body={encoded_body}"
                     st.markdown(f"[📧 Open Email Client]({mailto_link})")
-                    st.caption("Or email: miniman9955@gmail.com")
+                    st.caption("Or email: sam@aeo-insights.com")
+                    
+                    # Debug info
+                    st.info("💡 **Tip:** The link opens your email app. You must click 'Send' to actually send the email.")
                 else:
                     st.warning("Please enter a message")
 
