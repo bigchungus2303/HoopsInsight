@@ -526,11 +526,11 @@ if current_page == 'Prediction History':
     with st.sidebar:
         # Navigation buttons
         st.subheader("Navigate")
-        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_history", width="expand"):
+        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_history", use_container_width=True):
             st.session_state.current_page = 'Player Analysis'
             st.rerun()
         
-        if st.button("📅 Season Report", key="nav_to_report_from_history", width="expand"):
+        if st.button("📅 Season Report", key="nav_to_report_from_history", use_container_width=True):
             st.session_state.current_page = 'Season Report'
             st.rerun()
         
@@ -549,11 +549,11 @@ elif current_page == 'Season Report':
     with st.sidebar:
         # Navigation buttons
         st.subheader("Navigate")
-        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_report", width="expand"):
+        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_report", use_container_width=True):
             st.session_state.current_page = 'Player Analysis'
             st.rerun()
         
-        if st.button("📊 Prediction History", key="nav_to_history_from_report", width="expand"):
+        if st.button("📊 Prediction History", key="nav_to_history_from_report", use_container_width=True):
             st.session_state.current_page = 'Prediction History'
             st.rerun()
         
@@ -660,11 +660,11 @@ elif current_page == 'Season Report':
 with st.sidebar:
     # Navigation buttons to other pages
     st.subheader("Navigate")
-    if st.button("📅 Season Report", key="nav_to_report", width="expand"):
+    if st.button("📅 Season Report", key="nav_to_report", use_container_width=True):
         st.session_state.current_page = 'Season Report'
         st.rerun()
     
-    if st.button("📊 Prediction History", key="nav_to_history", width="expand"):
+    if st.button("📊 Prediction History", key="nav_to_history", use_container_width=True):
         st.session_state.current_page = 'Prediction History'
         st.rerun()
     
