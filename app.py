@@ -15,7 +15,7 @@ from database import NBADatabase
 from error_handler import safe_api_call, show_loading, show_data_quality_warning
 
 # Import modular components
-from components.api_dashboard import show_api_dashboard
+# from components.api_dashboard import show_api_dashboard  # Hidden from UI
 from components.advanced_settings import show_advanced_settings
 from components.prediction_cards import show_all_predictions
 from components.simple_prediction_cards import show_simple_predictions, show_betting_summary
@@ -453,11 +453,6 @@ if current_page == 'Prediction History':
             st.session_state.current_page = 'Season Report'
             st.rerun()
         
-        st.divider()
-        with st.expander("📊 API Status"):
-            cache_stats = api_client.get_cache_stats()
-            st.metric("Total Requests", cache_stats['total_requests'])
-            st.metric("Cache Hit Rate", f"{cache_stats['cache_hit_rate']:.1f}%")
     
     # Show page
     try:
@@ -569,11 +564,6 @@ elif current_page == 'Season Report':
                 st.session_state.report_player_data = None
                 st.rerun()
         
-        st.divider()
-        with st.expander("📊 API Status"):
-            cache_stats = api_client.get_cache_stats()
-            st.metric("Total Requests", cache_stats['total_requests'])
-            st.metric("Cache Hit Rate", f"{cache_stats['cache_hit_rate']:.1f}%")
     
     # Show page with report-specific data
     try:
@@ -600,9 +590,6 @@ with st.sidebar:
     st.divider()
     
     st.subheader("Player Search")
-    
-    # Connection status and API usage indicator
-    show_api_dashboard(api_client)
     
     st.divider()
     
