@@ -42,8 +42,18 @@ git push -u origin main
 5. **Click** "Advanced settings"
 6. **Add secrets:**
    ```toml
-   [api]
-   nba_api_key = "paste_your_key_here"
+   NBA_API_KEY = "paste_your_api_key_here"
+   
+   [mail]
+   HOST = "smtp.office365.com"
+   PORT = 587
+   USERNAME = "sam@aeo-insights.com"
+   PASSWORD = "your_mailbox_password"
+   FROM = "HoopsInsight <sam@aeo-insights.com>"
+   TO = "sam@aeo-insights.com"
+   USE_SSL = false
+   USE_TLS = true
+   TIMEOUT_SECONDS = 10
    ```
 7. **Click** "Deploy"
 8. **Wait** 3-5 minutes (building...)

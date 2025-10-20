@@ -489,28 +489,22 @@ with col_feedback:
                     safe_email = re.sub(r'[^\w\s@\.\-]', '', feedback_email or 'Not provided')[:100]
                     safe_message = feedback_message[:500]  # Limit length
                     
-                    # Create mailto link with sanitized content
-                    subject = "HoopsInsight Feedback"
-                    body = f"From: {safe_name}\nEmail: {safe_email}\n\nMessage:\n{safe_message}"
-
-                    # URL encode properly
-                    import urllib.parse
-                    encoded_subject = urllib.parse.quote(subject)
-                    encoded_body = urllib.parse.quote(body)
+                    # Send email via SMTP
+                    with st.spinner("Sending feedback..."):
+                        from email_utils import send_feedback_email
+                        success, message = send_feedback_email(safe_name, safe_email, safe_message)
                     
-                    # Show success and mailto link
-                    st.success("✅ Thank you! Click below to send via your email client:")
-                    mailto_link = f"mailto:sam@aeo-insights.com?subject={encoded_subject}&body={encoded_body}"
-                    st.markdown(f"[📧 Open Email Client]({mailto_link})")
-                    st.caption("Or email: sam@aeo-insights.com")
-
-                    # Persist rate-limit timestamp only after initiating send
-                    db.mark_feedback_sent(session_id)
-
-                    # Debug info
-                    st.info("💡 **Tip:** The link opens your email app. You must click 'Send' to actually send the email.")
+                    if success:
+                        st.success("✅ Thank you! Your feedback has been sent successfully.")
+                        st.balloons()
+                        
+                        # Persist rate-limit timestamp only after successful send
+                        db.mark_feedback_sent(session_id)
+                    else:
+                        st.error(f"❌ Failed to send feedback: {message}")
+                        st.caption("Please try again or email directly: sam@aeo-insights.com")
                 else:
-                    st.warning("Please enter a message")
+                    st.warning("⚠️ Please enter a message")
 
 st.divider()
 
