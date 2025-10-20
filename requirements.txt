@@ -1,23 +1,6 @@
-# NBA Performance Predictor - Python 3.11+ Required
-# All dependencies are actively used - verified October 20, 2025
-
-# Web Framework
-streamlit>=1.50.0          # UI framework (app.py, all components)
-
-# Data Processing
-pandas>=2.0.0              # DataFrames (app.py, models.py, statistics.py, export_utils.py)
-numpy>=1.24.0              # Numerical computing (models.py, statistics.py, lambda_advisor.py)
-
-# Visualization
-plotly>=5.0.0              # Interactive charts (app.py - plotly.express, plotly.graph_objects)
-
-# HTTP & API
-requests>=2.28.0           # API calls (nba_api.py)
-
-# Statistical Analysis
-scipy>=1.10.0              # Statistical functions (models.py: linregress, norm.ppf, binom_test, beta distribution)
-
-# Notes:
-# - Version constraints relaxed for better compatibility
-# - All packages verified as actively used in codebase
-# - No unused dependencies
+streamlit
+pandas
+numpy
+plotly
+requests
+scipy
