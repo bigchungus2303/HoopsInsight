@@ -503,7 +503,10 @@ with col_feedback:
                     mailto_link = f"mailto:sam@aeo-insights.com?subject={encoded_subject}&body={encoded_body}"
                     st.markdown(f"[📧 Open Email Client]({mailto_link})")
                     st.caption("Or email: sam@aeo-insights.com")
-                    
+
+                    # Persist rate-limit timestamp only after initiating send
+                    db.mark_feedback_sent(session_id)
+
                     # Debug info
                     st.info("💡 **Tip:** The link opens your email app. You must click 'Send' to actually send the email.")
                 else:
