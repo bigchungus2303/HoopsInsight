@@ -389,8 +389,27 @@ col_title, col_feedback = st.columns([4, 1])
 with col_title:
     st.title("🏀 NBA Player Performance Predictor")
     
-    # Clickable disclaimer
-    with st.expander("⚠️ DISCLAIMER - READ BEFORE USE", expanded=False):
+    # Clickable disclaimer - prominent red text
+    st.markdown("""
+        <style>
+        .disclaimer-text {
+            color: #FF0000;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            padding: 5px;
+            border: 2px solid #FF0000;
+            border-radius: 5px;
+            background-color: #FFF5F5;
+            margin-bottom: 10px;
+        }
+        </style>
+        <div class="disclaimer-text">
+            ⚠️ DISCLAIMER - READ BEFORE USE ⚠️
+        </div>
+    """, unsafe_allow_html=True)
+    
+    with st.expander("📄 Click to Read Full Disclaimer", expanded=False):
         st.markdown("""
 ## ⚠️ Important Notice
 
