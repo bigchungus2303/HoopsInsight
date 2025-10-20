@@ -388,7 +388,59 @@ col_title, col_feedback = st.columns([4, 1])
 
 with col_title:
     st.title("🏀 NBA Player Performance Predictor")
-    st.markdown("*Regression-to-Mean Analysis with Inverse-Frequency Probability Modeling*")
+    
+    # Clickable disclaimer
+    with st.expander("⚠️ DISCLAIMER - READ BEFORE USE", expanded=False):
+        st.markdown("""
+## ⚠️ Important Notice
+
+This application is provided for **informational and educational purposes only**.
+
+### **Not Financial or Betting Advice**
+
+The predictions, probabilities, and analyses provided:
+- Are based on **historical statistical patterns** only
+- Do **NOT** constitute financial, betting, or investment advice
+- Should **NOT** be used as the sole basis for betting decisions
+- Are **NOT** guaranteed to be accurate or profitable
+
+### **No Warranty**
+
+This software is provided "AS IS", without warranty of any kind.
+
+### **Risk Acknowledgment**
+
+- Sports betting involves **financial risk**
+- Past performance does **NOT** guarantee future results  
+- You may **lose money** if you use this for betting
+- Always gamble responsibly and within your means
+
+### **Data Accuracy**
+
+- Data sourced from balldontlie.io (third-party)
+- We do **NOT** guarantee accuracy or timeliness
+- Statistical models are **approximations**
+- Player performance depends on many unpredictable factors
+
+### **User Responsibility**
+
+By using this application, you acknowledge:
+- You use this tool at your own risk
+- You are responsible for your decisions
+- You should conduct your own research
+- You are of legal age for sports betting (if applicable)
+
+### **Problem Gambling Resources**
+
+If you or someone you know has a gambling problem:
+- **National Helpline:** 1-800-522-4700
+- **SAMHSA:** 1-800-662-4357
+- Visit: www.ncpgambling.org
+
+---
+
+**By using this application, you accept full responsibility for your decisions.**
+        """)
 
 with col_feedback:
     with st.popover("💬 Feedback", use_container_width=True):

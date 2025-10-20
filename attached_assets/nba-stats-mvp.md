@@ -376,9 +376,12 @@ Frontend only starts after CLI validation.
 32. ✅ 3PM stats in Season Report (October 20, 2025) ✨
 33. ✅ UI simplification - removed Z-scores (October 20, 2025) ✨
 34. ✅ Documentation consolidation - 23 docs → 6 (October 20, 2025) ✨
-35. ⏳ Historical multi-season charts (next priority)
-36. ⏳ Player news integration (on hold - design phase)
-37. ⏳ React frontend migration (future enhancement)
+35. ✅ User feedback system with rate limiting (October 20, 2025) ✨
+36. ✅ Production deployment to aeo-insights.com (October 20, 2025) ✨
+37. ✅ API dashboard hidden from UI (October 20, 2025) ✨
+38. ⏳ Historical multi-season charts (next priority)
+39. ⏳ Player news integration (on hold - design phase)
+40. ⏳ React frontend migration (future enhancement)
 
 ## 📝 Implementation Updates (October 2025)
 
@@ -1335,6 +1338,135 @@ unweighted_freq = (1/N) × Σ(exceeds[i])
 
 ---
 
+### User Feedback System (Implemented: October 20, 2025)
+
+**Feature**: Feedback button in top right corner for user suggestions
+
+**Implementation Details**:
+- **UI Component**: Popover button in header (top right)
+- **Form Fields**:
+  - Name (optional, max 50 chars)
+  - Email (optional, max 100 chars)
+  - Message (required, max 500 chars)
+- **Email Method**: mailto: link to miniman9955@gmail.com
+- **Rate Limiting**: Database-backed, 60-second minimum between submissions
+
+**Technical Changes**:
+- `app.py`: Lines 387-436 - Feedback form in header
+- `database.py`: Lines 558-603 - Added `check_feedback_rate_limit()` method
+- New database table: `feedback_tracking` with identifier and timestamp
+
+**Database Schema**:
+```sql
+CREATE TABLE feedback_tracking (
+    identifier TEXT PRIMARY KEY,    -- Session hash (MD5)
+    last_sent INTEGER NOT NULL      -- Unix timestamp
+)
+```
+
+**Security Features**:
+- Input sanitization: Regex removes special characters
+- Length limits: 50-500 characters
+- Rate limiting: 60 seconds minimum, survives page refresh
+- URL encoding: Proper urllib.parse.quote()
+- No SQL injection: Parameterized queries
+- No file uploads: Text only
+
+**Assumptions**:
+- Users have email client configured
+- mailto: links work in user's browser
+- Session hashing provides adequate uniqueness for rate limiting
+- 60-second limit acceptable for feedback UX
+
+**User Impact**:
+- Easy way to submit feedback
+- No account creation needed
+- Privacy-friendly (optional name/email)
+- Spam protection built-in
+
+---
+
+### Production Deployment Configuration (Implemented: October 20, 2025)
+
+**Feature**: Streamlit Cloud deployment for aeo-insights.com
+
+**Implementation Details**:
+- **Platform**: Streamlit Cloud (free tier)
+- **Domain**: aeo-insights.com (custom domain configured)
+- **Secrets Management**: Streamlit secrets.toml for NBA_API_KEY
+- **SSL**: Auto-provisioned via Let's Encrypt
+
+**New Files Created**:
+- `packages.txt` - System dependencies (libsqlite3-0)
+- `runtime.txt` - Python 3.11
+- `.streamlit/config.toml` - Hardened server config
+- `DEPLOY_TO_AEO_INSIGHTS.md` - Deployment guide
+- `DISCLAIMER.md`, `PRIVACY.md`, `TERMS.md` - Legal compliance
+- `SECURITY.md` - Security policy
+
+**Configuration Changes**:
+- `.streamlit/config.toml`: CSRF protection, error hiding, minimal toolbar
+- `nba_api.py`: Streamlit secrets support (tries st.secrets first, then os.getenv)
+- `app.py`: Legal disclaimer in footer
+- `.gitignore`: Excludes secrets.toml, .env, databases
+
+**Security Hardening**:
+- ✅ CSRF protection enabled
+- ✅ Error details hidden from users
+- ✅ SSL verification explicit (verify=True)
+- ✅ Database WAL mode for concurrency
+- ✅ Database size limits (200-400MB)
+- ✅ Connection timeouts (5-10s)
+- ✅ Secrets in environment (never in code)
+
+**Assumptions**:
+- Streamlit Cloud provides adequate DDoS protection
+- Free tier sufficient for expected traffic
+- SQLite adequate (not PostgreSQL needed)
+- Local database acceptable (not shared across instances)
+
+**User Impact**:
+- Public access at aeo-insights.com
+- HTTPS by default
+- Legal disclaimers visible
+- Production-grade reliability
+
+---
+
+### UI Simplification - API Dashboard Hidden (Implemented: October 20, 2025)
+
+**Feature**: Remove technical API metrics from sidebar
+
+**User Feedback**: "Too technical, users don't need to see cache stats"
+
+**Implementation Details**:
+- **Removed from all 3 page sidebars**:
+  - Player Analysis
+  - Season Report
+  - Prediction History
+- **Removed metrics**:
+  - Total Requests
+  - Cache Hit Rate
+  - API Calls
+
+**Technical Changes**:
+- `app.py`: Lines 457, 567, 604 - Removed API Status expanders
+- `app.py`: Line 18 - Commented out show_api_dashboard import
+- `components/api_dashboard.py` - Still available for debugging, just not displayed
+
+**Formula/Assumptions**:
+- No formula changes
+- Cache statistics still calculated internally
+- Available for debugging if needed (uncomment import)
+
+**User Impact**:
+- Cleaner sidebar interface
+- Less intimidating for casual users
+- Focus on actionable features only
+- Technical metrics hidden but still tracked
+
+---
+
 ### Enhanced Tooltips with User-Friendly Explanations (Implemented: October 20, 2025)
 
 **Feature**: Educational tooltips for all advanced settings
@@ -1430,11 +1562,30 @@ unweighted_freq = (1/N) × Σ(exceeds[i])
    - Deleted unused files (charts.py, backups, examples)
    - Updated this specification
 
+6. ✅ **Production Deployment Preparation**
+   - Configured for aeo-insights.com
+   - Streamlit Cloud deployment ready
+   - Security hardening (rate limiting, input sanitization)
+   - Legal compliance (DISCLAIMER.md, PRIVACY.md, TERMS.md)
+
+7. ✅ **User Feedback System**
+   - Added feedback button in top right corner
+   - Email: miniman9955@gmail.com
+   - Database-backed rate limiting (60s minimum)
+   - Input sanitization and length limits
+
+8. ✅ **UI Cleanup**
+   - Hidden API usage dashboard from sidebar
+   - Cleaner, less technical interface
+   - Focus on user-facing features only
+
 ### **Impact:**
 - Opponent filter works correctly (SAC, LAL, all teams)
 - Cleaner, more user-friendly interface
 - Professional documentation structure
 - Maintainable codebase
+- Ready for public deployment at aeo-insights.com
+- User feedback collection enabled
 
 ---
 
@@ -1443,13 +1594,16 @@ unweighted_freq = (1/N) × Σ(exceeds[i])
 
 **Current Status** (October 20, 2025): 
 - Production-ready Streamlit application
+- Deployed to: aeo-insights.com (Streamlit Cloud)
 - Schema-versioned caching system
 - Comprehensive statistical modeling
 - Player comparison and opponent-specific analysis
 - Simplified UX with advanced features
 - Favorites management and prediction tracking
 - Data export capabilities
+- User feedback system (rate-limited)
 - Clean, consolidated documentation
+- Security hardened for public access
 
 **Foundation Established For**:
 - Future predictive and simulation-based analytics
