@@ -235,7 +235,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
                 'Games': len(filtered_df)
             })
         
-        st.dataframe(pd.DataFrame(stats_summary), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(stats_summary), width="expand", hide_index=True)
     
     st.divider()
     
@@ -272,7 +272,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
             height=300
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="expand")
     
     st.divider()
     
@@ -300,7 +300,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
             height=400
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="expand")
         
         st.divider()
     
@@ -345,7 +345,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
         st.info(f"**🔍 {len(anomalies)} anomalies detected**")
         anomaly_df = pd.DataFrame(anomalies)
         anomaly_df['date'] = pd.to_datetime(anomaly_df['date']).dt.strftime('%m/%d/%Y')
-        st.dataframe(anomaly_df, use_container_width=True, hide_index=True)
+        st.dataframe(anomaly_df, width="expand", hide_index=True)
     else:
         st.success("✅ No significant anomalies detected")
     
@@ -356,7 +356,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
         display_df = display_df[['date', 'opponent', 'pts', 'reb', 'ast', 'fg3m', 'fg_pct', 'min']]
         display_df.columns = ['Date', 'Opponent', 'PTS', 'REB', 'AST', '3PM', 'FG%', 'MIN']
         display_df = display_df.sort_values('Date', ascending=False)
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="expand", hide_index=True)
 
 # Initialize session state
 if 'selected_player' not in st.session_state:
@@ -462,7 +462,7 @@ If you or someone you know has a gambling problem:
         """)
 
 with col_feedback:
-    with st.popover("💬 Feedback", use_container_width=True):
+    with st.popover("💬 Feedback", width="expand"):
         st.caption("Help us improve!")
         
         # Rate limiting check (persistent across sessions)
@@ -483,21 +483,22 @@ with col_feedback:
             
             # Show direct email link
             if feedback_message and len(feedback_message.strip()) > 0:
-                # Sanitize inputs
+                # Sanitize inputs (prevent XSS/injection)
                 import re
                 import urllib.parse
+                import html
                 safe_name = re.sub(r'[^\w\s\-\.]', '', feedback_name or 'Anonymous')[:50]
                 safe_email = re.sub(r'[^\w\s@\.\-]', '', feedback_email or 'Not provided')[:100]
-                safe_message = feedback_message[:500]
+                safe_message = html.escape(feedback_message[:500])  # HTML escape to prevent XSS
                 
-                # Create mailto link
+                # Create mailto link (URL-encoded for safety)
                 subject = "HoopsInsight Feedback"
                 body = f"From: {safe_name}\nEmail: {safe_email}\n\nMessage:\n{safe_message}"
                 mailto_link = f"mailto:sam@aeo-insights.com?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
                 
-                # Direct clickable link
+                # Direct clickable link (sanitized inputs prevent XSS)
                 st.markdown(f"""
-                    <a href="{mailto_link}" target="_blank" style="
+                    <a href="{html.escape(mailto_link)}" target="_blank" style="
                         display: inline-block;
                         padding: 0.5rem 1rem;
                         background-color: #FF4B4B;
@@ -509,6 +510,9 @@ with col_feedback:
                     ">📧 Send Feedback</a>
                 """, unsafe_allow_html=True)
                 st.caption("Click above to open your email client")
+                
+                # Track feedback submission (rate limiting - prevents spam)
+                db.mark_feedback_sent(session_id)
             else:
                 st.button("📧 Send Feedback", type="primary", disabled=True)
                 st.caption("Please enter a message first")
@@ -523,11 +527,11 @@ if current_page == 'Prediction History':
     with st.sidebar:
         # Navigation buttons
         st.subheader("Navigate")
-        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_history", use_container_width=True):
+        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_history", width="expand"):
             st.session_state.current_page = 'Player Analysis'
             st.rerun()
         
-        if st.button("📅 Season Report", key="nav_to_report_from_history", use_container_width=True):
+        if st.button("📅 Season Report", key="nav_to_report_from_history", width="expand"):
             st.session_state.current_page = 'Season Report'
             st.rerun()
         
@@ -546,11 +550,11 @@ elif current_page == 'Season Report':
     with st.sidebar:
         # Navigation buttons
         st.subheader("Navigate")
-        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_report", use_container_width=True):
+        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_report", width="expand"):
             st.session_state.current_page = 'Player Analysis'
             st.rerun()
         
-        if st.button("📊 Prediction History", key="nav_to_history_from_report", use_container_width=True):
+        if st.button("📊 Prediction History", key="nav_to_history_from_report", width="expand"):
             st.session_state.current_page = 'Prediction History'
             st.rerun()
         
@@ -657,11 +661,11 @@ elif current_page == 'Season Report':
 with st.sidebar:
     # Navigation buttons to other pages
     st.subheader("Navigate")
-    if st.button("📅 Season Report", key="nav_to_report", use_container_width=True):
+    if st.button("📅 Season Report", key="nav_to_report", width="expand"):
         st.session_state.current_page = 'Season Report'
         st.rerun()
     
-    if st.button("📊 Prediction History", key="nav_to_history", use_container_width=True):
+    if st.button("📊 Prediction History", key="nav_to_history", width="expand"):
         st.session_state.current_page = 'Prediction History'
         st.rerun()
     
@@ -1160,7 +1164,7 @@ else:
             fig.add_hline(y=parse_minutes(season_stats['min']), line_dash="dash", line_color="gray", row=2, col=2)
         
         fig.update_layout(height=500, showlegend=False, title_text="Last 10 Games from Season (Dashed lines = Season Average)")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="expand")
         
         st.caption(f"ℹ️ Showing last 10 games for visualization. All {len(recent_games)} games from season loaded for analysis.")
         
@@ -1168,7 +1172,7 @@ else:
         display_games = games_df[['date', 'pts', 'reb', 'ast', 'fg_pct', 'fg3m', 'min']].copy()
         display_games['date'] = display_games['date'].dt.strftime('%m/%d')
         display_games.columns = ['Date', 'PTS', 'REB', 'AST', 'FG%', '3PM', 'MIN']
-        st.dataframe(display_games, use_container_width=True)
+        st.dataframe(display_games, width="expand")
     
     # Minutes Played Analysis (simplified from Career Phase & Fatigue Analysis)
     st.header("⚡ Minutes Played Analysis")
@@ -1202,7 +1206,7 @@ else:
                              showarrow=False, bgcolor="yellow")
         
         fig.update_layout(title="Minutes Played Trend", height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="expand")
         
         # Insights
         col1, col2 = st.columns(2)
@@ -1372,7 +1376,7 @@ else:
                         if debug_info:
                             import pandas as pd
                             debug_df = pd.DataFrame(debug_info)
-                            st.dataframe(debug_df, use_container_width=True)
+                            st.dataframe(debug_df, width="expand")
                         else:
                             st.warning("No debug info collected. Make sure games are loaded.")
                         
@@ -1558,7 +1562,7 @@ else:
             if impact_data:
                 import pandas as pd
                 impact_df = pd.DataFrame(impact_data)
-                st.dataframe(impact_df, use_container_width=True, hide_index=True)
+                st.dataframe(impact_df, width="expand", hide_index=True)
                 
                 # Summary
                 avg_difference = sum([abs(float(d['Difference'].replace('%','').replace('+',''))) for d in impact_data]) / len(impact_data)
@@ -1701,7 +1705,7 @@ if st.session_state.comparison_data and st.session_state.player_data:
         
         fig.update_layout(barmode='group', title="Season Averages Comparison",
                          xaxis_title="Statistics", yaxis_title="Values")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="expand")
 
 # Footer
 st.divider()
