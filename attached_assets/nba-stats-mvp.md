@@ -1575,79 +1575,65 @@ def mark_feedback_sent(identifier) -> None:
 
 ---
 
-### Streamlit Parameter Migration (Implemented: October 20, 2025)
+### Streamlit Parameter Migration - REVERSED (Implemented: October 20, 2025)
 
-**Feature**: Migrate from deprecated `use_container_width` to new `width` parameter
+**Issue**: Streamlit Cloud (Python 3.13) doesn't support `width="expand"` parameter
 
-**Trigger**: Streamlit deprecation warning - `use_container_width` removal after 2025-12-31
+**Trigger**: StreamlitInvalidWidthError on deployment - `width="expand"` not valid in newer Streamlit
 
 **Implementation Details**:
-- **Deprecated Parameter**: `use_container_width=True`
-- **New Parameter**: `width="expand"`
-- **Total Replacements**: 18 instances across app.py
+- **Original migration**: Changed `use_container_width=True` → `width="expand"` (INCORRECT)
+- **Fixed migration**: Reverted to `use_container_width=True` (CORRECT)
+- **Total Fixes**: 18 instances across app.py
 
-**Locations Updated**:
+**Widgets Fixed**:
 
-1. **Dataframes (5 instances)**:
-   - Season stats summary table
-   - Anomaly detection table
-   - Recent games display
-   - Debug info table
-   - Alpha impact visualizer
+1. **Buttons (6 instances)**:
+   - All navigation buttons across 3 pages
+   - Must use `use_container_width=True` (NOT `width="expand"`)
 
-2. **Charts (5 instances)**:
-   - Performance trend line charts
-   - Monthly comparison bar chart
-   - Recent games visualization
-   - Minutes played trend
-   - Player comparison bars
+2. **Dataframes (6 instances)**:
+   - Season stats, anomaly tables, game logs
+   - Must use `use_container_width=True` (NOT `width="expand"`)
 
-3. **Buttons (7 instances)**:
-   - Navigation buttons (all 3 pages)
-   - "Player Analysis" navigation
-   - "Season Report" navigation
-   - "Prediction History" navigation
+3. **Charts (5 instances)**:
+   - All plotly_chart visualizations
+   - Must use `use_container_width=True` (NOT `width="expand"`)
 
 4. **Popover (1 instance)**:
    - Feedback form popover
+   - Does NOT support width parameter at all
 
 **Technical Changes**:
 ```python
-# Before (deprecated)
+# CORRECT (works on Python 3.13):
+st.button("Click", use_container_width=True)
 st.dataframe(df, use_container_width=True)
 st.plotly_chart(fig, use_container_width=True)
-st.button("Click", use_container_width=True)
+st.popover("Label")  # No width parameter
 
-# After (new syntax)
-st.dataframe(df, width="expand")
-st.plotly_chart(fig, width="expand")
-st.button("Click", width="expand")
+# WRONG (breaks on Python 3.13):
+st.button("Click", width="expand")  # ❌ StreamlitInvalidWidthError
+st.dataframe(df, width="expand")     # ❌ StreamlitInvalidWidthError
+st.plotly_chart(fig, width="expand") # ❌ StreamlitInvalidWidthError
+st.popover("Label", width="expand")  # ❌ StreamlitInvalidWidthError
 ```
 
-**File Modified**:
-- `app.py`: All 18 occurrences replaced in single operation
+**Root Cause**:
+- Streamlit API changed between versions
+- `width="expand"` is NOT supported for buttons/dataframes/charts
+- Python 3.13 on Streamlit Cloud has stricter validation
 
-**Benefits**:
-- ✅ No more deprecation warnings
-- ✅ Future-proof for Streamlit 2.0+
-- ✅ Same visual behavior
-- ✅ More explicit parameter naming
-- ✅ Consistent with Streamlit's new API design
-
-**Assumptions**:
-- `width="expand"` provides identical behavior to `use_container_width=True`
-- No breaking changes to existing UI layout
-- Compatible with current Streamlit version (1.23+)
+**Resolution**:
+- Keep using `use_container_width=True` (stable, works everywhere)
+- Do NOT use `width="expand"` for interactive widgets
+- `width` parameter may only work for static elements
 
 **User Impact**:
-- No visible changes to interface
-- Identical layout and functionality
-- Improved performance (minor, internal optimization)
-
-**Formula/Assumptions**:
-- No statistical formula changes
-- Pure UI/parameter migration
-- Zero impact on calculations or predictions
+- ✅ App works on Streamlit Cloud (Python 3.13)
+- ✅ No more StreamlitInvalidWidthError
+- ✅ Identical visual appearance
+- ✅ Compatible with local (Python 3.11) and cloud (Python 3.13)
 
 ---
 

@@ -234,7 +234,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
                 'Games': len(filtered_df)
             })
         
-        st.dataframe(pd.DataFrame(stats_summary), width="expand", hide_index=True)
+        st.dataframe(pd.DataFrame(stats_summary), use_container_width=True, hide_index=True)
     
     st.divider()
     
@@ -271,7 +271,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
             height=300
         )
         
-        st.plotly_chart(fig, width="expand")
+        st.plotly_chart(fig, use_container_width=True)
     
     st.divider()
     
@@ -299,7 +299,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
             height=400
         )
         
-        st.plotly_chart(fig, width="expand")
+        st.plotly_chart(fig, use_container_width=True)
         
         st.divider()
     
@@ -344,7 +344,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
         st.info(f"**🔍 {len(anomalies)} anomalies detected**")
         anomaly_df = pd.DataFrame(anomalies)
         anomaly_df['date'] = pd.to_datetime(anomaly_df['date']).dt.strftime('%m/%d/%Y')
-        st.dataframe(anomaly_df, width="expand", hide_index=True)
+        st.dataframe(anomaly_df, use_container_width=True, hide_index=True)
     else:
         st.success("✅ No significant anomalies detected")
     
@@ -355,7 +355,7 @@ def show_season_report_page(api_client, stats_engine, player_data):
         display_df = display_df[['date', 'opponent', 'pts', 'reb', 'ast', 'fg3m', 'fg_pct', 'min']]
         display_df.columns = ['Date', 'Opponent', 'PTS', 'REB', 'AST', '3PM', 'FG%', 'MIN']
         display_df = display_df.sort_values('Date', ascending=False)
-        st.dataframe(display_df, width="expand", hide_index=True)
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # Initialize session state
 if 'selected_player' not in st.session_state:
@@ -1163,7 +1163,7 @@ else:
             fig.add_hline(y=parse_minutes(season_stats['min']), line_dash="dash", line_color="gray", row=2, col=2)
         
         fig.update_layout(height=500, showlegend=False, title_text="Last 10 Games from Season (Dashed lines = Season Average)")
-        st.plotly_chart(fig, width="expand")
+        st.plotly_chart(fig, use_container_width=True)
         
         st.caption(f"ℹ️ Showing last 10 games for visualization. All {len(recent_games)} games from season loaded for analysis.")
         
@@ -1171,7 +1171,7 @@ else:
         display_games = games_df[['date', 'pts', 'reb', 'ast', 'fg_pct', 'fg3m', 'min']].copy()
         display_games['date'] = display_games['date'].dt.strftime('%m/%d')
         display_games.columns = ['Date', 'PTS', 'REB', 'AST', 'FG%', '3PM', 'MIN']
-        st.dataframe(display_games, width="expand")
+        st.dataframe(display_games, use_container_width=True)
     
     # Minutes Played Analysis (simplified from Career Phase & Fatigue Analysis)
     st.header("⚡ Minutes Played Analysis")
@@ -1205,7 +1205,7 @@ else:
                              showarrow=False, bgcolor="yellow")
         
         fig.update_layout(title="Minutes Played Trend", height=400)
-        st.plotly_chart(fig, width="expand")
+        st.plotly_chart(fig, use_container_width=True)
         
         # Insights
         col1, col2 = st.columns(2)
@@ -1372,7 +1372,7 @@ else:
                         if debug_info:
                             import pandas as pd
                             debug_df = pd.DataFrame(debug_info)
-                            st.dataframe(debug_df, width="expand")
+                            st.dataframe(debug_df, use_container_width=True)
                         else:
                             st.warning("No debug info collected. Make sure games are loaded.")
                         
@@ -1556,7 +1556,7 @@ else:
             if impact_data:
                 import pandas as pd
                 impact_df = pd.DataFrame(impact_data)
-                st.dataframe(impact_df, width="expand", hide_index=True)
+                st.dataframe(impact_df, use_container_width=True, hide_index=True)
                 
                 # Summary
                 avg_difference = sum([abs(float(d['Difference'].replace('%','').replace('+',''))) for d in impact_data]) / len(impact_data)
@@ -1684,7 +1684,7 @@ if st.session_state.comparison_data and st.session_state.player_data:
         
         fig.update_layout(barmode='group', title="Season Averages Comparison",
                          xaxis_title="Statistics", yaxis_title="Values")
-        st.plotly_chart(fig, width="expand")
+        st.plotly_chart(fig, use_container_width=True)
 
 # Footer
 st.divider()
