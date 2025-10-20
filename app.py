@@ -1591,4 +1591,20 @@ if st.session_state.comparison_data and st.session_state.player_data:
 
 # Footer
 st.divider()
-st.markdown("**Data Source**: [balldontlie.io](https://balldontlie.io) | **Model**: Inverse-Frequency Probability with Career Phase Weighting")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("**Data**: [balldontlie.io](https://balldontlie.io)")
+with col2:
+    with st.expander("📄 Legal"):
+        st.markdown("""
+        **This app is for entertainment and educational purposes only.**
+        
+        - ⚠️ Not financial or betting advice
+        - 📊 Based on historical statistics only
+        - 🎲 Past performance ≠ future results
+        - ⚖️ Use at your own risk
+        
+        Problem gambling? Call 1-800-522-4700
+        """)
+with col3:
+    st.caption("© 2025 AEO Insights")

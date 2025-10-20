@@ -186,9 +186,16 @@ class NBADatabase:
 
     @contextmanager
     def _get_connection(self):
-        """Context manager for database connections"""
-        conn = sqlite3.connect(self.db_path)
+        """Context manager for database connections with security settings"""
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        
+        # Enable WAL mode for better concurrency
+        conn.execute("PRAGMA journal_mode=WAL")
+        
+        # Security: Limit database size
+        conn.execute("PRAGMA max_page_count=100000")  # ~400MB limit
+        
         try:
             yield conn
         finally:

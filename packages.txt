@@ -1,0 +1,6 @@
+# System packages for Streamlit Cloud
+# These will be installed via apt-get
+
+# Required for SQLite
+libsqlite3-0
+

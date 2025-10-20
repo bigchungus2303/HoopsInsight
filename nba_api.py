@@ -22,7 +22,13 @@ class NBAAPIClient:
     
     def __init__(self):
         self.base_url = config.API_BASE_URL
-        self.api_key = os.getenv("NBA_API_KEY", "")  # API key from environment
+        # Try Streamlit secrets first, then environment variable
+        try:
+            import streamlit as st
+            self.api_key = st.secrets.get("api", {}).get("nba_api_key", "") or os.getenv("NBA_API_KEY", "")
+        except:
+            self.api_key = os.getenv("NBA_API_KEY", "")
+        
         self.headers = {"Authorization": self.api_key} if self.api_key else {}  # Direct API key, not Bearer
         self.session = requests.Session()
         self.session.headers.update(self.headers)
@@ -49,7 +55,7 @@ class NBAAPIClient:
         
         for attempt in range(max_retries):
             try:
-                response = self.session.get(url, params=params, timeout=config.API_TIMEOUT)
+                response = self.session.get(url, params=params, timeout=config.API_TIMEOUT, verify=True)
                 self.api_call_count += 1
                 
                 if response.status_code == 200:

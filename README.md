@@ -41,45 +41,30 @@ A sophisticated NBA player performance analysis and prediction tool using regres
 - **Visual Confidence Meters**: Easy-to-read prediction reliability
 - **Export Functionality**: Export data as CSV or JSON
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
+### **Local Development:**
 
-- Python 3.7 or higher
-- Virtual environment (included as `env/`)
-
-### Installation
-
-1. **Install required packages:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Running the Application
-
-#### Option 1: Using the Batch File (Easiest)
-Double-click `run_app.bat` or run in command prompt:
 ```bash
-run_app.bat
-```
+# 1. Install dependencies
+pip install -r requirements.txt
 
-#### Option 2: Manual Command
-Activate the virtual environment and run:
-```bash
-# Activate virtual environment
-env\Scripts\activate
-
-# Run the app
+# 2. Run the app
 streamlit run app.py
+
+# Opens at: http://localhost:8501
 ```
 
-#### Option 3: Direct Command
-```bash
-.\env\Scripts\python.exe -m streamlit run app.py
-```
+### **Deploy to aeo-insights.com:**
 
-The app will start and automatically open in your browser at:
-**http://localhost:8501**
+📖 **Read:** [DEPLOY_TO_AEO_INSIGHTS.md](DEPLOY_TO_AEO_INSIGHTS.md)
+
+**Quick summary:**
+1. Get API key from balldontlie.io
+2. Push to GitHub
+3. Deploy on Streamlit Cloud (free)
+4. Add custom domain
+5. Done! (15 minutes total)
 
 ## Project Structure
 
@@ -207,21 +192,18 @@ All NBA data is sourced from [balldontlie.io](https://balldontlie.io) API.
 
 ## 📚 Documentation
 
-### **Core Documents:**
+| Document | Purpose |
+|----------|---------|
+| **[README.md](README.md)** (this file) | Getting started, features |
+| **[DEPLOY_TO_AEO_INSIGHTS.md](DEPLOY_TO_AEO_INSIGHTS.md)** | 🚀 Deploy to production (15 min) |
+| **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** | Technical architecture |
+| **[CHANGELOG.md](CHANGELOG.md)** | Feature history |
+| **[nba-stats-mvp.md](attached_assets/nba-stats-mvp.md)** | Mathematical spec |
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| **README.md** (this file) | Getting started, features, usage | Users |
-| **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** | Architecture, API, database, testing | Developers |
-| **[CHANGELOG.md](CHANGELOG.md)** | Feature history, updates | Everyone |
-| **[nba-stats-mvp.md](attached_assets/nba-stats-mvp.md)** | Mathematical spec, formulas | Developers |
-| **[tests/README.md](tests/README.md)** | Testing guide | Developers |
-
-### **Quick Links:**
-- 🆕 **What's new?** → Read [CHANGELOG.md](CHANGELOG.md)
-- 🔧 **How to develop?** → Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
-- 🧪 **How to test?** → Read [tests/README.md](tests/README.md)
-- 📊 **Model details?** → Read [nba-stats-mvp.md](attached_assets/nba-stats-mvp.md)
+**Quick links:**
+- 🚀 **Deploy now?** → [DEPLOY_TO_AEO_INSIGHTS.md](DEPLOY_TO_AEO_INSIGHTS.md)
+- 🆕 **What's new?** → [CHANGELOG.md](CHANGELOG.md)
+- 🔧 **Development?** → [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
 
 ---
 

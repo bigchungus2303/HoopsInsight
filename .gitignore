@@ -1,19 +1,12 @@
-# Virtual Environment
-env/
-venv/
-ENV/
-VENV/
-.venv/
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-
-# Distribution / packaging
-.Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -30,32 +23,16 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
-*.manifest
-*.spec
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
+# Environment
+.env
+.env.local
+.env.*.local
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-nba_cache.db
-
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
@@ -63,17 +40,23 @@ nba_cache.db
 *~
 .DS_Store
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
 # Logs
-*.log
 logs/
+*.log
+
+# Database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+cache.db
+nba_cache.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
 
 # OS
 Thumbs.db
-desktop.ini
-
-
+.directory

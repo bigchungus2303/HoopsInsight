@@ -19,9 +19,15 @@ TABLE = "http_cache"
 
 
 def init_db(db_path: str = DB_PATH) -> None:
-    """Initialize cache database with required schema."""
-    conn = sqlite3.connect(db_path)
+    """Initialize cache database with required schema and security settings."""
+    conn = sqlite3.connect(db_path, timeout=10.0, check_same_thread=False)
     cursor = conn.cursor()
+    
+    # Enable WAL mode for better concurrency
+    cursor.execute("PRAGMA journal_mode=WAL")
+    
+    # Security: Limit cache size
+    cursor.execute("PRAGMA max_page_count=50000")  # ~200MB limit
     
     # Create table
     cursor.execute(f"""
@@ -86,7 +92,7 @@ def get_cached(
     Returns:
         Cached dict or None if miss/expired/schema mismatch
     """
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=5.0, check_same_thread=False)
     cursor = conn.cursor()
     
     cursor.execute(
@@ -133,10 +139,14 @@ def set_cached(
         schema_ver: Schema version
         db_path: Database path
     """
-    conn = sqlite3.connect(db_path)
+    # Validate payload size (prevent cache bloat)
+    payload_str = json.dumps(payload, separators=(',', ':'))
+    if len(payload_str) > 5_000_000:  # 5MB limit per entry
+        raise ValueError("Payload too large for caching")
+    
+    conn = sqlite3.connect(db_path, timeout=5.0, check_same_thread=False)
     cursor = conn.cursor()
     
-    payload_str = json.dumps(payload, separators=(',', ':'))
     now = int(time.time())
     
     cursor.execute(
@@ -153,9 +163,13 @@ def set_cached(
 
 def clear_cache(db_path: str = DB_PATH) -> None:
     """Delete all cache entries."""
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=5.0, check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute(f"DELETE FROM {TABLE}")
+    
+    # Vacuum to reclaim space
+    cursor.execute("VACUUM")
+    
     conn.commit()
     conn.close()
 
