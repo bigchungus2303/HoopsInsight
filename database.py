@@ -555,6 +555,53 @@ class NBADatabase:
             conn.commit()
             return cursor.lastrowid
     
+    def check_feedback_rate_limit(self, identifier: str = "anonymous", limit_seconds: int = 60) -> bool:
+        """
+        Check if feedback can be sent (rate limiting)
+        
+        Args:
+            identifier: User identifier (session hash)
+            limit_seconds: Minimum seconds between feedback
+            
+        Returns:
+            True if allowed, False if rate limited
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Create feedback_tracking table if not exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS feedback_tracking (
+                    identifier TEXT PRIMARY KEY,
+                    last_sent INTEGER NOT NULL
+                )
+            """)
+            
+            # Check last sent time
+            cursor.execute(
+                "SELECT last_sent FROM feedback_tracking WHERE identifier = ?",
+                (identifier,)
+            )
+            row = cursor.fetchone()
+            
+            current_time = int(time.time())
+            
+            if row:
+                last_sent = row['last_sent']
+                time_diff = current_time - last_sent
+                
+                if time_diff < limit_seconds:
+                    return False  # Rate limited
+            
+            # Update last sent time
+            cursor.execute(
+                "INSERT OR REPLACE INTO feedback_tracking (identifier, last_sent) VALUES (?, ?)",
+                (identifier, current_time)
+            )
+            conn.commit()
+            
+            return True  # Allowed
+    
     def verify_prediction(self, prediction_id: int, actual_value: float):
         """Verify a prediction with actual game result"""
         with self._get_connection() as conn:
