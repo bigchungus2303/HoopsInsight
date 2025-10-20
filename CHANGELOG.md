@@ -11,6 +11,14 @@ All notable changes and features for the NBA Performance Predictor.
   - Removed "Simple View" toggle and betting-focused interface
   - Keeping only technical view with percentage-based predictions
   - Cleaner, more consistent prediction display
+- **Removed opponent teams list display**
+  - Removed "📊 Player faced: ATL, BKN..." caption when opponent filter enabled
+  - Cleaner UI without incomplete list display
+
+### 🐛 Fixed
+- **Popover width parameter error**
+  - Removed invalid `width="expand"` from feedback popover
+  - `st.popover()` doesn't support width parameter
 
 ### ✨ Added
 - **Schema-Versioned Cache System** (`cache_sqlite.py`)

@@ -461,7 +461,7 @@ If you or someone you know has a gambling problem:
         """)
 
 with col_feedback:
-    with st.popover("💬 Feedback", width="expand"):
+    with st.popover("💬 Feedback"):
         st.caption("Help us improve!")
         
         # Rate limiting check (persistent across sessions)
