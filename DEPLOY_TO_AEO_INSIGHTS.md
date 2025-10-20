@@ -53,7 +53,7 @@ git push -u origin main
    TO = "sam@aeo-insights.com"
    USE_SSL = false
    USE_TLS = true
-   TIMEOUT_SECONDS = 10
+   TIMEOUT_SECONDS = 30
    ```
 7. **Click** "Deploy"
 8. **Wait** 3-5 minutes (building...)

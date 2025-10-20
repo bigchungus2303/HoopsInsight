@@ -41,7 +41,7 @@ def send_feedback_email(name: str, email: str, message: str) -> tuple[bool, str]
         to_addr = mail_config.get("TO")
         use_ssl = mail_config.get("USE_SSL", False)
         use_tls = mail_config.get("USE_TLS", True)
-        timeout = mail_config.get("TIMEOUT_SECONDS", 10)
+        timeout = mail_config.get("TIMEOUT_SECONDS", 30)  # Increased from 10 to 30
         
         # Validate required fields
         if not all([host, username, password, from_addr, to_addr]):
@@ -89,37 +89,57 @@ Sent from aeo-insights.com
         msg.attach(part1)
         msg.attach(part2)
         
-        # Send email
-        if use_ssl and port == 465:
-            # SSL connection (port 465)
-            context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(host, port, timeout=timeout, context=context) as server:
-                server.login(username, password)
-                server.send_message(msg)
-                logger.info(f"Feedback email sent successfully from {name}")
-                return True, "Email sent successfully"
-        else:
-            # STARTTLS connection (port 587)
-            with smtplib.SMTP(host, port, timeout=timeout) as server:
-                server.ehlo()
-                if use_tls:
+        # Send email with retry logic
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                if use_ssl and port == 465:
+                    # SSL connection (port 465)
+                    logger.info(f"Attempting SSL connection to {host}:{port} (attempt {attempt+1}/{max_retries})")
                     context = ssl.create_default_context()
-                    server.starttls(context=context)
-                    server.ehlo()
-                server.login(username, password)
-                server.send_message(msg)
-                logger.info(f"Feedback email sent successfully from {name}")
-                return True, "Email sent successfully"
+                    with smtplib.SMTP_SSL(host, port, timeout=timeout, context=context) as server:
+                        logger.info("Connected, logging in...")
+                        server.login(username, password)
+                        logger.info("Logged in, sending message...")
+                        server.send_message(msg)
+                        logger.info(f"Feedback email sent successfully from {name}")
+                        return True, "Email sent successfully"
+                else:
+                    # STARTTLS connection (port 587)
+                    logger.info(f"Attempting STARTTLS connection to {host}:{port} (attempt {attempt+1}/{max_retries})")
+                    with smtplib.SMTP(host, port, timeout=timeout) as server:
+                        logger.info("Connected, sending EHLO...")
+                        server.ehlo()
+                        if use_tls:
+                            logger.info("Starting TLS...")
+                            context = ssl.create_default_context()
+                            server.starttls(context=context)
+                            server.ehlo()
+                        logger.info("Logging in...")
+                        server.login(username, password)
+                        logger.info("Sending message...")
+                        server.send_message(msg)
+                        logger.info(f"Feedback email sent successfully from {name}")
+                        return True, "Email sent successfully"
+            except (TimeoutError, OSError) as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Attempt {attempt+1} failed, retrying: {e}")
+                    continue
+                else:
+                    raise  # Re-raise on last attempt
                 
     except smtplib.SMTPAuthenticationError as e:
         logger.error(f"SMTP authentication failed: {e}")
         return False, "Authentication failed - check email credentials"
+    except smtplib.SMTPServerDisconnected as e:
+        logger.error(f"SMTP server disconnected: {e}")
+        return False, "Server disconnected - check SMTP settings or try again"
     except smtplib.SMTPException as e:
         logger.error(f"SMTP error: {e}")
         return False, f"Email server error: {str(e)}"
-    except TimeoutError:
-        logger.error("SMTP connection timeout")
-        return False, "Connection timeout - please try again"
+    except (TimeoutError, OSError) as e:
+        logger.error(f"SMTP connection timeout or network error: {e}")
+        return False, "Connection timeout - check network or try again later"
     except Exception as e:
         logger.error(f"Unexpected error sending email: {e}", exc_info=True)
         return False, "Failed to send email - please try again later"

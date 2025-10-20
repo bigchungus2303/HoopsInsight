@@ -481,30 +481,37 @@ with col_feedback:
             feedback_email = st.text_input("Email (optional)", key="feedback_email", placeholder="your@email.com", max_chars=100)
             feedback_message = st.text_area("Message", key="feedback_message", placeholder="Share your thoughts...", height=100, max_chars=500)
             
-            if st.button("📧 Send Feedback", type="primary"):
-                if feedback_message and len(feedback_message.strip()) > 0:
-                    # Sanitize inputs (remove potential injection attempts)
-                    import re
-                    safe_name = re.sub(r'[^\w\s\-\.]', '', feedback_name or 'Anonymous')[:50]
-                    safe_email = re.sub(r'[^\w\s@\.\-]', '', feedback_email or 'Not provided')[:100]
-                    safe_message = feedback_message[:500]  # Limit length
-                    
-                    # Send email via SMTP
-                    with st.spinner("Sending feedback..."):
-                        from email_utils import send_feedback_email
-                        success, message = send_feedback_email(safe_name, safe_email, safe_message)
-                    
-                    if success:
-                        st.success("✅ Thank you! Your feedback has been sent successfully.")
-                        st.balloons()
-                        
-                        # Persist rate-limit timestamp only after successful send
-                        db.mark_feedback_sent(session_id)
-                    else:
-                        st.error(f"❌ Failed to send feedback: {message}")
-                        st.caption("Please try again or email directly: sam@aeo-insights.com")
-                else:
-                    st.warning("⚠️ Please enter a message")
+            # Show direct email link
+            if feedback_message and len(feedback_message.strip()) > 0:
+                # Sanitize inputs
+                import re
+                import urllib.parse
+                safe_name = re.sub(r'[^\w\s\-\.]', '', feedback_name or 'Anonymous')[:50]
+                safe_email = re.sub(r'[^\w\s@\.\-]', '', feedback_email or 'Not provided')[:100]
+                safe_message = feedback_message[:500]
+                
+                # Create mailto link
+                subject = "HoopsInsight Feedback"
+                body = f"From: {safe_name}\nEmail: {safe_email}\n\nMessage:\n{safe_message}"
+                mailto_link = f"mailto:sam@aeo-insights.com?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+                
+                # Direct clickable link
+                st.markdown(f"""
+                    <a href="{mailto_link}" target="_blank" style="
+                        display: inline-block;
+                        padding: 0.5rem 1rem;
+                        background-color: #FF4B4B;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 0.5rem;
+                        font-weight: 600;
+                        text-align: center;
+                    ">📧 Send Feedback</a>
+                """, unsafe_allow_html=True)
+                st.caption("Click above to open your email client")
+            else:
+                st.button("📧 Send Feedback", type="primary", disabled=True)
+                st.caption("Please enter a message first")
 
 st.divider()
 
