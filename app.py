@@ -383,8 +383,57 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🏀 NBA Player Performance Predictor")
-st.markdown("*Regression-to-Mean Analysis with Inverse-Frequency Probability Modeling*")
+# Feedback form in top right corner
+col_title, col_feedback = st.columns([4, 1])
+
+with col_title:
+    st.title("🏀 NBA Player Performance Predictor")
+    st.markdown("*Regression-to-Mean Analysis with Inverse-Frequency Probability Modeling*")
+
+with col_feedback:
+    with st.popover("💬 Feedback", use_container_width=True):
+        st.caption("Help us improve!")
+        
+        # Rate limiting check (persistent across sessions)
+        # Use session ID as identifier (survives page refresh)
+        import hashlib
+        session_id = hashlib.md5(str(st.session_state).encode()).hexdigest()[:16]
+        
+        # Check database-based rate limit
+        can_send = db.check_feedback_rate_limit(session_id, limit_seconds=60)
+        
+        if not can_send:
+            st.warning("⏳ Please wait 60 seconds between feedback submissions")
+            st.caption("This prevents spam and helps us manage feedback")
+        else:
+            feedback_name = st.text_input("Name (optional)", key="feedback_name", placeholder="Your name", max_chars=50)
+            feedback_email = st.text_input("Email (optional)", key="feedback_email", placeholder="your@email.com", max_chars=100)
+            feedback_message = st.text_area("Message", key="feedback_message", placeholder="Share your thoughts...", height=100, max_chars=500)
+            
+            if st.button("📧 Send Feedback", type="primary"):
+                if feedback_message and len(feedback_message.strip()) > 0:
+                    # Sanitize inputs (remove potential injection attempts)
+                    import re
+                    safe_name = re.sub(r'[^\w\s\-\.]', '', feedback_name or 'Anonymous')[:50]
+                    safe_email = re.sub(r'[^\w\s@\.\-]', '', feedback_email or 'Not provided')[:100]
+                    safe_message = feedback_message[:500]  # Limit length
+                    
+                    # Create mailto link with sanitized content
+                    subject = "HoopsInsight Feedback"
+                    body = f"From: {safe_name}\nEmail: {safe_email}\n\nMessage:\n{safe_message}"
+                    
+                    # URL encode properly
+                    import urllib.parse
+                    encoded_subject = urllib.parse.quote(subject)
+                    encoded_body = urllib.parse.quote(body)
+                    
+                    # Show success and mailto link
+                    st.success("✅ Thank you! Click below to send via your email client:")
+                    mailto_link = f"mailto:miniman9955@gmail.com?subject={encoded_subject}&body={encoded_body}"
+                    st.markdown(f"[📧 Open Email Client]({mailto_link})")
+                    st.caption("Or email: miniman9955@gmail.com")
+                else:
+                    st.warning("Please enter a message")
 
 st.divider()
 
