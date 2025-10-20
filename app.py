@@ -18,7 +18,6 @@ from error_handler import safe_api_call, show_loading, show_data_quality_warning
 # from components.api_dashboard import show_api_dashboard  # Hidden from UI
 from components.advanced_settings import show_advanced_settings
 from components.prediction_cards import show_all_predictions
-from components.simple_prediction_cards import show_simple_predictions, show_betting_summary
 from components.lambda_advisor import calculate_optimal_lambda
 
 # Import pages (functions now defined inline)
@@ -1320,9 +1319,6 @@ else:
                         opponents_set.add(teams_lookup[opponent_id])
                 
                 opponents_list = sorted(list(opponents_set))
-                
-                if opponents_list:
-                    st.caption(f"📊 Player faced: {', '.join(opponents_list[:10])}")
             
             # Process opponent filter when user enters a team
             if opponent_team_input and len(opponent_team_input.strip()) > 0:
@@ -1529,11 +1525,9 @@ else:
                 games_df, thresholds, alpha=alpha
             )
         
-        # Display predictions - choose between technical and simplified view
-        col1, col2, col3 = st.columns([1, 1, 3])
+        # Display predictions with alpha impact option
+        col1, col2 = st.columns([1, 3])
         with col1:
-            use_simple_ui = st.toggle("🎯 Simple View", value=True, help="Switch between technical and user-friendly prediction display")
-        with col2:
             show_alpha_impact = st.checkbox("🔍 Show α Impact", value=False, help="Compare weighted vs unweighted probabilities to see alpha effect")
         
         # Show alpha impact comparison if enabled
@@ -1575,38 +1569,23 @@ else:
             
             st.divider()
         
-        if use_simple_ui:
-            # Show simplified, user-friendly predictions
-            show_simple_predictions(probability_results)
-            show_betting_summary(probability_results)
-        else:
-            # Show technical predictions (original)
-            show_all_predictions(probability_results)
+        # Show technical predictions with percentages
+        show_all_predictions(probability_results)
         
         # Show interpretation guide
         with st.expander("ℹ️ How to Read Predictions"):
-            if use_simple_ui:
-                st.markdown("""
-                **🎯 Simple View Guide:**
-                - **LIKELY/UNLIKELY**: Based on recent performance patterns
-                - **HOT/COLD/STEADY**: Current performance trend indicator  
-                - **BET: OVER/UNDER**: Betting recommendation based on regression analysis
-                - **Risk Level**: How confident we are in the prediction
-                - **Insight**: AI-generated explanation of what to expect
-                """)
-            else:
-                st.markdown("""
-                **📊 Technical View Guide:**
-                - **Success Probability**: Historical frequency of achieving the threshold, weighted by recency.
-                
-                **Confidence Levels**:
-                - **High**: Player achieved this threshold 5+ times (reliable estimate)
-                - **Low**: Player achieved this threshold <5 times (less reliable, Bayesian smoothing applied)
-                
-                **Recency Weighting**: Recent games are weighted more heavily (α = {:.2f})
-                
-                **Note**: These predictions are based on historical patterns. Actual performance depends on matchup, health, and other factors.
-                """.format(alpha))
+            st.markdown("""
+            **📊 Prediction Guide:**
+            - **Success Probability**: Historical frequency of achieving the threshold, weighted by recency.
+            
+            **Confidence Levels**:
+            - **High**: Player achieved this threshold 5+ times (reliable estimate)
+            - **Low**: Player achieved this threshold <5 times (less reliable, Bayesian smoothing applied)
+            
+            **Recency Weighting**: Recent games are weighted more heavily (α = {:.2f})
+            
+            **Note**: These predictions are based on historical patterns. Actual performance depends on matchup, health, and other factors.
+            """.format(alpha))
         
         # Save predictions section
         st.divider()

@@ -6,6 +6,12 @@ All notable changes and features for the NBA Performance Predictor.
 
 ## [Latest] - October 20, 2025
 
+### 🔧 Changed
+- **Removed Simple View UI** (NEW)
+  - Removed "Simple View" toggle and betting-focused interface
+  - Keeping only technical view with percentage-based predictions
+  - Cleaner, more consistent prediction display
+
 ### ✨ Added
 - **Schema-Versioned Cache System** (`cache_sqlite.py`)
   - Auto-invalidates on schema changes

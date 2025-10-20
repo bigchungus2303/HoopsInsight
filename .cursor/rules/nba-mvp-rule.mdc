@@ -5,3 +5,4 @@ Always read nba-stats-mvp.md before coding.
 Document CLI flags, formulas, and assumptions.
 Update when model logic or API data structure changes or Update documentation after major features
 Frontend only starts after CLI validation.
+Always ask for permission to perform a task with explanation
