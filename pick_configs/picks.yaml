@@ -1,0 +1,30 @@
+# Pick of the Day Configuration
+# Market presets and filtering rules
+
+presets:
+  default:
+    pts: [20, 25, 30, 35, 40]
+    ast: [5, 7, 10, 12, 15]
+    reb: [6, 8, 10, 12, 14]
+    fg3m: [2, 3, 4, 5, 6]
+  
+  conservative:
+    pts: [15, 20, 25, 30]
+    ast: [4, 6, 8, 10]
+    reb: [5, 7, 9, 11]
+    fg3m: [1, 2, 3, 4]
+  
+  aggressive:
+    pts: [25, 30, 35, 40, 45]
+    ast: [7, 10, 12, 15, 18]
+    reb: [8, 10, 12, 14, 16]
+    fg3m: [3, 4, 5, 6, 7]
+
+diversity:
+  require_distinct_stats: true
+  min_conf_gap_for_duplicate_stat: 0.05
+
+filters:
+  min_minutes_last5: 18
+  exclude_small_sample_under: 2
+
