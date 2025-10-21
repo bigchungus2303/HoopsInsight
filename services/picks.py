@@ -25,6 +25,59 @@ class PickOfTheDayService:
         self._schedule_df = None
         self._player_cache = {}  # Cache player pools to avoid repeated API calls
     
+    @staticmethod
+    def is_player_available(recent_games: List[Dict]) -> Tuple[bool, str]:
+        """
+        Check if player is likely available based on recent game activity
+        
+        Args:
+            recent_games: List of recent game dictionaries
+            
+        Returns:
+            Tuple of (is_available, reason)
+            - is_available: True if player appears healthy/active
+            - reason: String explaining the decision
+        """
+        if not recent_games or len(recent_games) < 3:
+            return True, "Insufficient data"
+        
+        # Check last 3 games
+        last_3 = recent_games[:3]
+        minutes_played = []
+        
+        for game in last_3:
+            mins = game.get('min', 0)
+            # Parse MM:SS format
+            if isinstance(mins, str) and ':' in mins:
+                try:
+                    parts = mins.split(':')
+                    mins = int(parts[0]) + int(parts[1]) / 60
+                except:
+                    mins = 0
+            minutes_played.append(float(mins) if mins else 0)
+        
+        # Injury detection patterns
+        avg_mins = sum(minutes_played) / len(minutes_played)
+        
+        # Pattern 1: All 3 games with <2 minutes (DNP/Injury)
+        if all(m < 2 for m in minutes_played):
+            return False, "DNP last 3 games (likely injured/out)"
+        
+        # Pattern 2: All 3 games with <5 minutes (severe minutes restriction)
+        if all(m < 5 for m in minutes_played):
+            return False, "Very low minutes last 3 games (<5 min/game)"
+        
+        # Pattern 3: Average <10 minutes in last 3 (bench role or returning from injury)
+        if avg_mins < 10:
+            return False, f"Low recent minutes ({avg_mins:.1f} min/game in last 3)"
+        
+        # Pattern 4: Declining trend (possible injury concern)
+        if len(minutes_played) == 3:
+            if minutes_played[0] < minutes_played[2] * 0.5:  # Recent < 50% of older
+                return True, f"⚠️ Declining minutes trend ({minutes_played[0]:.1f} → {minutes_played[2]:.1f})"
+        
+        return True, f"Active ({avg_mins:.1f} min/game)"
+    
     def _load_config(self) -> Dict:
         """Load configuration from YAML file"""
         config_path = Path("pick_configs/picks.yaml")
@@ -210,14 +263,37 @@ class PickOfTheDayService:
                         continue
                     
                     # Get recent games to verify they're active
-                    recent_games = self.api_client.get_recent_games(
+                    # Use smart loading for season transitions
+                    recent_games, _ = self.api_client.get_recent_games_smart(
                         player['id'], 
                         limit=5, 
                         season=season, 
-                        postseason=False
+                        postseason=False,
+                        min_games_threshold=3  # Lower threshold for player pool
                     )
                     
                     if recent_games and len(recent_games) > 0:
+                        # Check real-time injury API
+                        injured_player_ids = self.api_client.get_injured_players()
+                        if player['id'] in injured_player_ids:
+                            # Skip players marked as "Out" in injury report
+                            continue
+                        
+                        # Also check manual exclusion list (for overrides/suspensions)
+                        player_full_name = f"{player.get('first_name', '')} {player.get('last_name', '')}"
+                        manual_exclusions = self.config.get('injured_players', [])
+                        
+                        if player_full_name in manual_exclusions:
+                            # Skip manually excluded players
+                            continue
+                        
+                        # Check if player is available (DNP pattern detection)
+                        is_available, availability_reason = self.is_player_available(recent_games)
+                        
+                        if not is_available:
+                            # Skip injured/out players based on game data
+                            continue
+                        
                         # Calculate average minutes
                         total_mins = 0
                         valid_games = 0
@@ -233,6 +309,7 @@ class PickOfTheDayService:
                         
                         if avg_mins >= 15:
                             player['avg_minutes'] = avg_mins
+                            player['availability_reason'] = availability_reason
                             active_players.append(player)
                             
                             if len(active_players) >= k:
@@ -290,13 +367,14 @@ class PickOfTheDayService:
         """
         player_id = player['id']
         
-        # Fetch recent games
+        # Fetch recent games with smart multi-season loading
         try:
-            recent_games = self.api_client.get_recent_games(
+            recent_games, _ = self.api_client.get_recent_games_smart(
                 player_id, 
                 limit=100, 
                 season=season, 
-                postseason=False
+                postseason=False,
+                min_games_threshold=10  # Supplement if <10 games in current season
             )
         except Exception as e:
             return None
@@ -353,6 +431,8 @@ class PickOfTheDayService:
         result = results[stat][threshold]
         
         # Build prediction dictionary
+        player_availability = player.get('availability_reason', None)
+        
         prediction = {
             'player_id': player_id,
             'player_name': f"{player.get('first_name', '')} {player.get('last_name', '')}",
@@ -363,15 +443,20 @@ class PickOfTheDayService:
             'n_games': result['n_games'],
             'std': games_df[stat].std() if stat in games_df.columns else 0,
             'alpha': alpha,
-            'badges': self._generate_badges(result, games_df, stat),
+            'badges': self._generate_badges(result, games_df, stat, player_availability),
             'rationale': self._generate_rationale(result, stat, threshold, opponent_abbr)
         }
         
         return prediction
     
-    def _generate_badges(self, result: Dict, games_df: pd.DataFrame, stat: str) -> List[str]:
+    def _generate_badges(self, result: Dict, games_df: pd.DataFrame, stat: str, 
+                        player_availability: str = None) -> List[str]:
         """Generate badges for a prediction (HOT, COLD, etc.)"""
         badges = []
+        
+        # Injury concern badge
+        if player_availability and '⚠️' in player_availability:
+            badges.append('⚠️ MINUTES CONCERN')
         
         # Hot badge - recent performance above average
         if len(games_df) >= 5:

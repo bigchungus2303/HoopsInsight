@@ -107,18 +107,27 @@ HIGH CONFIDENCE
 ## ✅ Implementation Complete
 
 ### Player Pool Selection - WORKING
-**Solution**: Static roster of 3-4 star players per team
+**Solution**: Static roster of 3-4 star players per team with injury filtering
 
 **How It Works**:
 - Searches by first name only (API requirement)
 - Filters to correct team after search
-- Verifies ≥15 min/game in 2024 season
+- **DNP Detection**: Excludes players with 0-5 minutes in last 3 games
+- **Injury Patterns**: Filters out likely injured players based on:
+  - All games <2 minutes (DNP)
+  - All games <5 minutes (severe restriction)
+  - Average <10 minutes in last 3 (bench/returning from injury)
 - Results are cached for performance
 
+**Injury Limitations**:
+- ⚠️ **Offseason injuries**: Won't detect until new season games played
+- ✅ **In-season injuries**: Detected after 1-3 DNPs
+- ✅ **Load management**: Filtered if consistent low minutes
+
 **Example Output (Oct 21, 2025)**:
-- HOU: Alperen Sengun, Fred VanVleet (2 picks ≥77%)
+- HOU: Alperen Sengun (2 picks ≥77%) - Fred VanVleet filtered out if injured
 - OKC: Shai Gilgeous-Alexander (2 picks ≥77%)
-- Only shows high-confidence predictions!
+- Only shows high-confidence predictions from available players!
 
 ---
 
