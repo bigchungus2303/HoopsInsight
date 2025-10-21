@@ -880,6 +880,35 @@ probability_results = model.calculate_inverse_frequency_probabilities(
 - ✅ Player Analysis filtering works with real teams
 - ✅ Better user experience with accurate matchup data
 
+### Removed Opponent Teams List Display ✨ NEW (October 20, 2025)
+**UI Cleanup:**
+- Removed incomplete opponent teams list from opponent filter section
+- User feedback: "List is cut off and not useful"
+
+**What Was Removed:**
+- ❌ Caption line: `"📊 Player faced: ATL, BKN, BOS, CHA, CHI, CLE, DAL, DEN, DET, GSW"`
+- Display was limited to first 10 teams (incomplete)
+- Not actionable information for users
+
+**What Remains:**
+- ✅ Opponent filter text input (fully functional)
+- ✅ Team autocomplete functionality
+- ✅ Internal opponents_list for validation (not displayed)
+- ✅ Warning messages when no games found
+
+**Technical Changes:**
+- File: `app.py` (lines 1317-1324)
+- Removed: `st.caption(f"📊 Player faced: {', '.join(opponents_list[:10])}")`
+- Kept: `opponents_list` variable for validation logic
+
+**User Impact:**
+- ✅ Cleaner UI without cluttered team list
+- ✅ Focus on text input for opponent selection
+- ✅ Less visual noise in opponent filter section
+- ✅ Same functionality, better presentation
+
+---
+
 ### Removed Confidence Percentages from Simple View ✨ NEW (October 18, 2025)
 **User Experience Improvement:**
 - Removed potentially misleading "(XX% confidence)" text from simple prediction cards
@@ -920,6 +949,63 @@ probability_results = model.calculate_inverse_frequency_probabilities(
 - ✅ Better for casual/betting users
 - ✅ Focus on actionable information
 - ✅ Maintains all predictive power in background
+
+---
+
+### Complete Simple View Removal ✨ NEW (October 20, 2025)
+**Major UX Simplification:**
+- Completely removed "Simple View" toggle and betting-focused interface
+- Keeping only technical view with percentage-based predictions
+- User feedback: "Toggle is confusing - just show one view"
+
+**What Was Removed:**
+1. ❌ **"🎯 Simple View" toggle** - Entire toggle control removed
+2. ❌ **Simple prediction cards** - LIKELY/UNLIKELY labels removed
+3. ❌ **Betting guide** - HOT/COLD/BET OVER/UNDER interface removed
+4. ❌ **show_simple_predictions()** - Component no longer imported
+5. ❌ **show_betting_summary()** - Component no longer imported
+6. ❌ **Dual view logic** - No more if/else for view switching
+
+**What Remains:**
+- ✅ Technical view with success probability percentages
+- ✅ Progress bars with visual indicators
+- ✅ Confidence levels (High/Low based on sample size)
+- ✅ Clear interpretation guide
+- ✅ Alpha impact visualizer (optional)
+
+**Technical Changes:**
+- File: `app.py` (lines 1532-1591)
+- Removed imports: `show_simple_predictions`, `show_betting_summary`
+- Removed toggle: 3-column layout → 2-column layout
+- Simplified: Always calls `show_all_predictions(probability_results)`
+- Updated help text: Single "Prediction Guide" (not dual view guides)
+
+**Display Format:**
+```
+🎯 Points ≥ 20
+━━━━━━━━━━━━━━━━━━━━
+65.2% ████████████░░░░░░░░
+High confidence (8/10 games)
+```
+
+**Rationale:**
+- Users found toggle confusing ("Which view should I use?")
+- Betting terminology not appropriate for all users
+- Percentage-based view is more objective and informative
+- Simpler interface = better user experience
+- Removes confusion about what "LIKELY" vs "65%" means
+
+**User Impact:**
+- ✅ Single, consistent prediction display
+- ✅ No more toggle confusion
+- ✅ Focus on statistical probabilities
+- ✅ Professional, analytics-focused interface
+- ✅ Better for data-driven decision making
+
+**Formula/Assumptions:**
+- No statistical formula changes
+- All probability calculations remain identical
+- Only display layer changed (removed betting-focused UI)
 
 ---
 
@@ -1714,7 +1800,8 @@ st.popover("Label", width="expand")  # ❌ StreamlitInvalidWidthError
    - Removed Z-scores from display
    - Removed confidence labels
    - Simplified fatigue analysis to minutes only
-   - Removed Simple View UI - keeping only technical view with percentages
+   - **Removed Simple View UI** - keeping only technical view with percentages (no more toggle)
+   - **Removed opponent teams list** - cleaner opponent filter UI
 
 3. ✅ **Enhanced Features**
    - Team autocomplete (type "L" → see Lakers, Clippers)
@@ -1756,20 +1843,27 @@ st.popover("Label", width="expand")  # ❌ StreamlitInvalidWidthError
    - Removed unused code (email_utils.py deleted)
    - Security score improved: 8.5/10 → 9.5/10
 
-10. ✅ **Streamlit API Migration**
-   - Migrated use_container_width → width parameter
-   - 18 replacements across all components
-   - Future-proof for Streamlit 2.0+
+10. ✅ **Streamlit API Compatibility Fix**
+   - Fixed all width parameter errors (18 fixes)
+   - Reverted to use_container_width=True (stable across versions)
+   - Compatible with Python 3.11 (local) and 3.13 (Streamlit Cloud)
+
+11. ✅ **Prediction Display Simplification**
+   - Removed "Simple View" toggle from Next Game Predictions
+   - Now shows only percentage-based technical view
+   - Removed betting-focused LIKELY/UNLIKELY interface
+   - Cleaner, more focused user experience
 
 ### **Impact:**
-- Opponent filter works correctly (SAC, LAL, all teams)
-- Cleaner, more user-friendly interface
-- Professional documentation structure
-- Maintainable codebase
-- Ready for public deployment at aeo-insights.com
-- User feedback collection enabled
-- **Hardened security for production** (XSS protected, rate limited)
-- **No deprecation warnings** (Streamlit 2.0 ready)
+- ✅ Opponent filter works correctly (SAC, LAL, all teams)
+- ✅ Cleaner, more user-friendly interface
+- ✅ Professional documentation structure
+- ✅ Maintainable codebase
+- ✅ **App works on Streamlit Cloud** (Python 3.13 compatible)
+- ✅ **No StreamlitInvalidWidthError** (all 18 instances fixed)
+- ✅ User feedback collection enabled
+- ✅ **Hardened security for production** (XSS protected, rate limited)
+- ✅ **Single prediction view** (no more confusing toggle)
 
 ---
 
