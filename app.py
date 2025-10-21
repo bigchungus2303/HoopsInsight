@@ -48,6 +48,15 @@ def show_season_report_page(api_client, stats_engine, player_data):
     st.subheader(f"📊 {player['first_name']} {player['last_name']}")
     st.caption(f"{season}-{season+1} {'Playoffs' if is_postseason else 'Regular Season'}")
     
+    # Multi-season indicator for Season Report
+    games_metadata = player_data.get('games_metadata', {})
+    if games_metadata.get('supplemented', False):
+        st.info(f"""
+        ℹ️ **Multi-Season Data**: Season {season}-{season+1} has only {games_metadata['current_season_games']} game(s).  
+        📊 Supplemented with {games_metadata['prev_season_games']} games from {season-1}-{season} for comprehensive analysis.  
+        **Total**: {games_metadata['total_games']} games
+        """)
+    
     if not all_games:
         st.warning("No games found for this player in the selected season.")
         return
@@ -603,7 +612,7 @@ elif current_page == 'Season Report':
         report_search = st.text_input("Search Player", placeholder="Type player name...", key="report_search")
         
         # Season selection for report
-        season_years = list(range(2024, 2019, -1))
+        season_years = list(range(2025, 2019, -1))
         season_display = {year: f"{year}-{year+1}" for year in season_years}
         
         report_season_display = st.selectbox(
@@ -643,13 +652,13 @@ elif current_page == 'Season Report':
                             default_return=None
                         )
                         
-                        all_games = safe_api_call(
-                            api_client.get_recent_games,
+                        all_games, report_games_metadata = safe_api_call(
+                            api_client.get_recent_games_smart,
                             player['id'],
                             limit=100,  # Get all games for season report
                             season=report_season,
                             postseason=report_is_postseason,
-                            default_return=[]
+                            default_return=([], {'supplemented': False, 'current_season_games': 0})
                         )
                         
                         career_stats = safe_api_call(
@@ -666,7 +675,8 @@ elif current_page == 'Season Report':
                             'all_games': all_games,
                             'career_stats': career_stats,
                             'season': report_season,
-                            'is_postseason': report_is_postseason
+                            'is_postseason': report_is_postseason,
+                            'games_metadata': report_games_metadata
                         }
                         
                         st.success(f"✅ Loaded {player['first_name']} {player['last_name']}!")
@@ -804,7 +814,7 @@ All games from selected season (up to 100)
     favorites = db.get_favorites()
     if favorites:
         with st.expander("⭐ Favorites"):
-            fav_season_years = list(range(2024, 2019, -1))
+            fav_season_years = list(range(2025, 2019, -1))
             fav_season_display = {year: f"{year}-{year+1}" for year in fav_season_years}
             
             fav_season_selected = st.selectbox(
@@ -847,11 +857,11 @@ All games from selected season (up to 100)
                                     postseason=fav_is_postseason,
                                     default_return=None
                                 )
-                                recent_games = safe_api_call(
-                                    api_client.get_recent_games,
+                                recent_games, games_metadata = safe_api_call(
+                                    api_client.get_recent_games_smart,
                                     player['id'],
                                     limit=100, season=fav_season, postseason=fav_is_postseason,
-                                    default_return=[]
+                                    default_return=([], {'supplemented': False, 'current_season_games': 0})
                                 )
                                 career_stats = safe_api_call(
                                     api_client.get_career_stats,
@@ -864,7 +874,8 @@ All games from selected season (up to 100)
                                     'player': player,
                                     'season_stats': season_stats,
                                     'recent_games': recent_games,
-                                    'career_stats': career_stats
+                                    'career_stats': career_stats,
+                                    'games_metadata': games_metadata
                                 }
                                 st.success(f"✅ Loaded {fav['player_name']} successfully!")
                                 st.rerun()
@@ -880,8 +891,8 @@ All games from selected season (up to 100)
     # Season selection (display as "2024-2025" format)
     current_year = datetime.now().year
     season_year = current_year if datetime.now().month >= 10 else current_year - 1
-    # Default to 2024 season (2024-2025) since 2025 season data not available yet
-    season_years = list(range(2024, 2019, -1))
+    # Include 2025 season (2025-2026) for upcoming season
+    season_years = list(range(2025, 2019, -1))
     season_display = {year: f"{year}-{year+1}" for year in season_years}
     
     selected_season_display = st.selectbox(
@@ -945,11 +956,12 @@ All games from selected season (up to 100)
                             error_message=f"Unable to load season statistics for {player_full_name}"
                         )
                         
-                        recent_games = safe_api_call(
-                            api_client.get_recent_games,
+                        # Use smart loading to supplement with previous season if needed
+                        recent_games, games_metadata = safe_api_call(
+                            api_client.get_recent_games_smart,
                             player['id'],
                             limit=100, season=selected_season, postseason=is_postseason,
-                            default_return=[],
+                            default_return=([], {'supplemented': False, 'current_season_games': 0}),
                             error_message=f"Unable to load recent games for {player_full_name}"
                         )
                         
@@ -965,7 +977,8 @@ All games from selected season (up to 100)
                             'player': player,
                             'season_stats': season_stats,
                             'recent_games': recent_games,
-                            'career_stats': career_stats
+                            'career_stats': career_stats,
+                            'games_metadata': games_metadata  # Track multi-season info
                         }
                         
                         st.success(f"✅ Successfully loaded {player_full_name}!")
@@ -990,7 +1003,7 @@ All games from selected season (up to 100)
     st.header("Player Comparison")
     comparison_query = st.text_input("Search Comparison Player", placeholder="Enter second player name...")
     
-    comp_season_years = list(range(2024, 2019, -1))
+    comp_season_years = list(range(2025, 2019, -1))
     comp_season_display = {year: f"{year}-{year+1}" for year in comp_season_years}
     
     comp_season_selected = st.selectbox(
@@ -1035,11 +1048,11 @@ All games from selected season (up to 100)
                             postseason=comp_is_postseason,
                             default_return=None
                         )
-                        comp_recent_games = safe_api_call(
-                            api_client.get_recent_games,
+                        comp_recent_games, comp_games_metadata = safe_api_call(
+                            api_client.get_recent_games_smart,
                             comp_player['id'],
                             limit=100, season=comp_season, postseason=comp_is_postseason,
-                            default_return=[]
+                            default_return=([], {'supplemented': False, 'current_season_games': 0})
                         )
                         comp_career_stats = safe_api_call(
                             api_client.get_career_stats,
@@ -1052,7 +1065,8 @@ All games from selected season (up to 100)
                             'player': comp_player,
                             'season_stats': comp_season_stats,
                             'recent_games': comp_recent_games,
-                            'career_stats': comp_career_stats
+                            'career_stats': comp_career_stats,
+                            'games_metadata': comp_games_metadata
                         }
                         
                         st.success(f"✅ Loaded {comp_player_name} for comparison!")
@@ -1227,6 +1241,15 @@ else:
     else:
         st.warning(f"⚠️ No season statistics available for {display_season_formatted}. The player may not have played in this season or data is unavailable.")
     
+    # Multi-season data indicator
+    games_metadata = player_info.get('games_metadata', {})
+    if games_metadata.get('supplemented', False):
+        st.info(f"""
+        ℹ️ **Multi-Season Data**: Season {display_season}-{display_season+1} has only {games_metadata['current_season_games']} game(s).  
+        📊 Supplemented with {games_metadata['prev_season_games']} recent games from {display_season-1}-{display_season} season for better analysis.  
+        **Total**: {games_metadata['total_games']} games analyzed
+        """)
+    
     # Recent Game Performance
     st.header("📈 Game Performance (Selected Season)")
     
@@ -1347,7 +1370,7 @@ else:
     # Next Game Predictions
     st.header("🔮 Next Game Predictions")
     
-    if recent_games and season_stats:
+    if recent_games:  # Only require games, season_stats is optional
         # Opponent Team Filter
         col1, col2 = st.columns([1, 3])
         with col1:
@@ -1533,7 +1556,13 @@ else:
         # Check if career phase decay is enabled
         use_career_phase = st.session_state.get('use_career_phase', False)
         
-        if use_career_phase:
+        # Career phase requires season stats - disable if not available
+        if use_career_phase and not season_stats:
+            st.info("ℹ️ Career Phase Decay disabled: Season statistics not available for this season yet. Using standard prediction model.")
+            use_career_phase = False
+        
+        # Career phase requires season stats
+        if use_career_phase and season_stats:
             st.markdown("*Predictions with Career Phase Decay enabled (Advanced Settings)*")
         else:
             st.markdown("*Based on historical performance and custom thresholds from Advanced Settings*")

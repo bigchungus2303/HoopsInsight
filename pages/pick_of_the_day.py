@@ -18,6 +18,21 @@ def show_pick_of_the_day_page(api_client: NBAAPIClient):
     # Initialize service
     service = PickOfTheDayService(api_client)
     
+    # Refresh players button (prominent location)
+    if st.button("🔄 Refresh Data", type="primary", use_container_width=False, 
+                 help="Refresh injury data and player pools from API"):
+        service._player_cache.clear()
+        api_client._injured_players_cache = None
+        api_client._injury_cache_time = None
+        st.success("✅ Injury data and player cache refreshed!")
+        st.rerun()
+    
+    # Injury disclaimer
+    st.info("""
+    🏥 **Automatic Injury Detection**: Using real-time data from balldontlie API.  
+    Players with status "Out" are automatically excluded. Cache refreshes every hour.
+    """)
+    
     # Check API key first
     if not api_client.api_key:
         st.error("❌ **NBA API Key Not Configured**")

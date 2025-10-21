@@ -41,6 +41,8 @@ class NBAAPIClient:
         self.api_call_count = 0  # Track API usage
         self.cache_hit_count = 0  # Track cache hits
         self._teams_cache = None  # Cache for team lookups
+        self._injured_players_cache = None  # Cache for injury data
+        self._injury_cache_time = None  # Timestamp of injury cache
         
         if not self.api_key:
             logger.warning("NBA_API_KEY not set - API calls may be rate limited")
@@ -269,6 +271,61 @@ class NBAAPIClient:
         except Exception as e:
             logger.error(f"Error getting season stats for player_id {player_id}, season {season}, postseason={postseason}: {e}", exc_info=True)
             return None
+    
+    def get_recent_games_smart(self, player_id: int, limit: int = 100, season: int = None, 
+                               postseason: bool = False, min_games_threshold: int = 10) -> tuple[List[Dict], Dict]:
+        """
+        Get recent games with smart multi-season aggregation for season transitions
+        
+        Args:
+            player_id: Player ID
+            limit: Maximum number of games to return
+            season: Target season
+            postseason: Whether to get playoff games
+            min_games_threshold: Minimum games before supplementing with previous season
+            
+        Returns:
+            Tuple of (games_list, metadata_dict)
+            metadata includes: current_season_games, prev_season_games, total_games
+        """
+        # Fetch current season games
+        current_games = self.get_recent_games(player_id, limit=limit, season=season, postseason=postseason)
+        
+        metadata = {
+            'current_season_games': len(current_games) if current_games else 0,
+            'prev_season_games': 0,
+            'seasons_used': [season],
+            'supplemented': False
+        }
+        
+        # If insufficient games, supplement with previous season
+        current_count = len(current_games) if current_games else 0
+        
+        if current_count < min_games_threshold and season:
+            prev_season = season - 1
+            prev_games = self.get_recent_games(player_id, limit=100, season=prev_season, postseason=postseason)
+            
+            if prev_games and len(prev_games) > 0:
+                # Combine and sort by date (most recent first)
+                if current_games:
+                    all_games = current_games + prev_games
+                else:
+                    all_games = prev_games
+                
+                all_games.sort(key=lambda x: x.get('game', {}).get('date', ''), reverse=True)
+                
+                # Limit to requested number
+                combined_games = all_games[:limit]
+                
+                metadata['prev_season_games'] = len(prev_games)
+                metadata['total_games'] = len(combined_games)
+                metadata['seasons_used'] = [season, prev_season]
+                metadata['supplemented'] = True
+                
+                return combined_games, metadata
+        
+        metadata['total_games'] = current_count
+        return current_games if current_games else [], metadata
     
     def get_recent_games(self, player_id: int, limit: int = 20, season: int = None, postseason: bool = False) -> List[Dict]:
         """Get recent games for a player with schema-versioned caching"""
@@ -511,6 +568,74 @@ class NBAAPIClient:
         except Exception as e:
             logger.error(f"Error fetching teams: {e}", exc_info=True)
             return {}
+    
+    def get_injured_players(self, force_refresh: bool = False) -> List[int]:
+        """
+        Get list of player IDs currently out with injuries
+        
+        Args:
+            force_refresh: Force refresh of injury data (default: use 1-hour cache)
+            
+        Returns:
+            List of player IDs with status "Out"
+        """
+        # Check cache (1 hour expiry)
+        if not force_refresh and self._injured_players_cache is not None:
+            if self._injury_cache_time:
+                cache_age = (datetime.now() - self._injury_cache_time).total_seconds()
+                if cache_age < 3600:  # 1 hour cache
+                    logger.debug(f"Using cached injury data ({cache_age:.0f}s old)")
+                    return self._injured_players_cache
+        
+        try:
+            logger.info("Fetching injury data from API...")
+            injured_ids = []
+            cursor = None
+            
+            # Fetch all pages of injury data
+            for _ in range(10):  # Max 10 pages (safety limit)
+                params = {"per_page": 100}
+                if cursor:
+                    params["cursor"] = cursor
+                
+                # Direct API call (injuries endpoint is at different base path)
+                url = "https://api.balldontlie.io/nba/v1/player_injuries"
+                try:
+                    r = self.session.get(url, params=params, timeout=config.API_TIMEOUT)
+                    r.raise_for_status()
+                    response = r.json()
+                    self.api_call_count += 1
+                except Exception as e:
+                    logger.error(f"Error fetching injuries: {e}")
+                    response = None
+                
+                if response and 'data' in response:
+                    # Filter for players with status "Out" (not Day-To-Day)
+                    for injury in response['data']:
+                        status = injury.get('status', '').lower()
+                        if status == 'out':
+                            player_id = injury.get('player', {}).get('id')
+                            if player_id:
+                                injured_ids.append(player_id)
+                    
+                    # Check for next page
+                    cursor = response.get('meta', {}).get('next_cursor')
+                    if not cursor:
+                        break
+                else:
+                    break
+            
+            # Cache the result
+            self._injured_players_cache = injured_ids
+            self._injury_cache_time = datetime.now()
+            
+            logger.info(f"Found {len(injured_ids)} players with status 'Out'")
+            return injured_ids
+            
+        except Exception as e:
+            logger.error(f"Error fetching injury data: {e}")
+            # Return empty list on error (fail gracefully)
+            return []
     
     def get_all_teams_details(self) -> List[Dict]:
         """

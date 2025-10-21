@@ -28,3 +28,11 @@ filters:
   min_minutes_last5: 18
   exclude_small_sample_under: 2
 
+# Manual injury exclusions (OPTIONAL - for overrides/suspensions only)
+# The app now uses real-time injury API from balldontlie
+# This list is only checked as a fallback or for manual overrides
+# Format: "FirstName LastName" (will be excluded from all picks)
+injured_players: []
+  # Example:
+  # - "Player Name"      # Suspension or manual override
+
