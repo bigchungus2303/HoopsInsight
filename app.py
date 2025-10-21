@@ -23,6 +23,7 @@ from components.lambda_advisor import calculate_optimal_lambda
 # Import pages (functions now defined inline)
 # from pages.prediction_history import show_prediction_history_page
 # from pages.season_report import show_season_report_page
+from pages.pick_of_the_day import show_pick_of_the_day_page
 
 def show_prediction_history_page(db):
     """Show prediction history page"""
@@ -523,7 +524,35 @@ st.divider()
 # Route to different pages based on selection FIRST
 current_page = st.session_state.current_page
 
-if current_page == 'Prediction History':
+if current_page == 'Pick of the Day':
+    # Minimal sidebar - picks page has its own sidebar
+    with st.sidebar:
+        # Navigation buttons
+        st.subheader("Navigate")
+        if st.button("🏀 Player Analysis", key="nav_to_analysis_from_picks", use_container_width=True):
+            st.session_state.current_page = 'Player Analysis'
+            st.rerun()
+        
+        if st.button("📅 Season Report", key="nav_to_report_from_picks", use_container_width=True):
+            st.session_state.current_page = 'Season Report'
+            st.rerun()
+        
+        if st.button("📊 Prediction History", key="nav_to_history_from_picks", use_container_width=True):
+            st.session_state.current_page = 'Prediction History'
+            st.rerun()
+        
+        st.divider()
+    
+    # Show page
+    try:
+        show_pick_of_the_day_page(api_client)
+    except Exception as e:
+        st.error(f"❌ Error loading Pick of the Day page: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+    st.stop()
+
+elif current_page == 'Prediction History':
     # Minimal sidebar for Prediction History
     with st.sidebar:
         # Navigation buttons
@@ -534,6 +563,10 @@ if current_page == 'Prediction History':
         
         if st.button("📅 Season Report", key="nav_to_report_from_history", use_container_width=True):
             st.session_state.current_page = 'Season Report'
+            st.rerun()
+        
+        if st.button("🎯 Pick of the Day", key="nav_to_picks_from_history", use_container_width=True):
+            st.session_state.current_page = 'Pick of the Day'
             st.rerun()
         
     
@@ -557,6 +590,10 @@ elif current_page == 'Season Report':
         
         if st.button("📊 Prediction History", key="nav_to_history_from_report", use_container_width=True):
             st.session_state.current_page = 'Prediction History'
+            st.rerun()
+        
+        if st.button("🎯 Pick of the Day", key="nav_to_picks_from_report", use_container_width=True):
+            st.session_state.current_page = 'Pick of the Day'
             st.rerun()
         
         st.divider()
@@ -670,16 +707,21 @@ with st.sidebar:
         st.session_state.current_page = 'Prediction History'
         st.rerun()
     
+    if st.button("🎯 Pick of the Day", key="nav_to_picks", use_container_width=True):
+        st.session_state.current_page = 'Pick of the Day'
+        st.rerun()
+    
     st.divider()
     
     # User Guide - How to use the app
     with st.expander("📚 Quick Start Guide"):
         st.markdown("""
-### 🎯 Three Main Features
+### 🎯 Four Main Features
 
 1. **📊 Player Analysis** - Next game predictions
 2. **📅 Season Report** - Historical analysis  
-3. **📈 Prediction History** - Track accuracy
+3. **🎯 Pick of the Day** - Top 5 picks per team
+4. **📈 Prediction History** - Track accuracy
 
 ---
 
@@ -703,6 +745,15 @@ with st.sidebar:
 **Step 2:** Search player independently  
 **Step 3:** Analyze stats, trends, anomalies  
 **Step 4:** Filter by date range if needed
+
+---
+
+### 🎯 Pick of the Day
+
+**Step 1:** Click "🎯 Pick of the Day" above  
+**Step 2:** Select game date (default: next games)  
+**Step 3:** Choose market preset & settings  
+**Step 4:** View top 5 picks per team for each game
 
 ---
 

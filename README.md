@@ -4,7 +4,7 @@ A sophisticated NBA player performance analysis and prediction tool using regres
 
 ## Features
 
-### **Three Powerful Pages:**
+### **Four Powerful Pages:**
 
 #### **1. Player Analysis** (Predictive)
 - **Player Search**: Find NBA players with autocomplete functionality
@@ -14,6 +14,7 @@ A sophisticated NBA player performance analysis and prediction tool using regres
   - Loads ALL games vs specific opponent from selected season
   - Provides sample size warnings for reliability
 - **Inverse-Frequency Model**: Calculate regression-to-mean probabilities
+- **Pick of the Day**: Automatic high-confidence picks for today's games ✨ NEW
 - **AI Lambda Advisor**: Auto-optimize career phase decay parameters
 - **Career Phase Weighting**: Adjust for early/peak/late career phases
 - **Player Comparison**: Side-by-side statistical analysis
@@ -29,7 +30,15 @@ A sophisticated NBA player performance analysis and prediction tool using regres
 - **Game Log**: Complete game-by-game breakdown with all stats
 - **Anomaly Detection**: Auto-detect DNPs, low minutes, statistical outliers (including 3PM)
 
-#### **3. Prediction History** (Validation)
+#### **3. Pick of the Day** (Daily Picks) ✨ NEW
+- **Automatic Game Detection**: Shows today's NBA games (US timezone)
+- **High-Confidence Picks**: Only displays picks ≥77% probability
+- **Top Players**: 3-4 star players per team analyzed
+- **Opponent-Specific**: Uses matchup history for predictions
+- **Zero Configuration**: Works immediately without settings
+- **Export Ready**: Download picks as CSV or JSON
+
+#### **4. Prediction History** (Validation)
 - **Track Predictions**: Save and verify predictions after games
 - **Accuracy Metrics**: Overall and per-category accuracy rates
 - **Verification Interface**: Simple input for actual game results
