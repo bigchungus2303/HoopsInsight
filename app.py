@@ -353,6 +353,8 @@ def show_season_report_page(api_client, stats_engine, player_data):
         display_df = filtered_df.copy()
         display_df['date'] = display_df['date'].dt.strftime('%m/%d/%Y')
         display_df = display_df[['date', 'opponent', 'pts', 'reb', 'ast', 'fg3m', 'fg_pct', 'min']]
+        # Convert FG% to percentage format
+        display_df['fg_pct'] = display_df['fg_pct'] * 100
         display_df.columns = ['Date', 'Opponent', 'PTS', 'REB', 'AST', '3PM', 'FG%', 'MIN']
         display_df = display_df.sort_values('Date', ascending=False)
         st.dataframe(display_df, use_container_width=True, hide_index=True)
@@ -1085,15 +1087,15 @@ else:
         
         with col1:
             st.metric("Points per Game", f"{safe_float(season_stats['pts']):.1f}")
-            st.metric("Field Goal %", f"{safe_float(season_stats['fg_pct']):.3f}")
+            st.metric("Field Goal %", f"{safe_float(season_stats['fg_pct']) * 100:.1f}%")
         
         with col2:
             st.metric("Rebounds per Game", f"{safe_float(season_stats['reb']):.1f}")
-            st.metric("3-Point %", f"{safe_float(season_stats['fg3_pct']):.3f}")
+            st.metric("3-Point %", f"{safe_float(season_stats['fg3_pct']) * 100:.1f}%")
         
         with col3:
             st.metric("Assists per Game", f"{safe_float(season_stats['ast']):.1f}")
-            st.metric("Free Throw %", f"{safe_float(season_stats['ft_pct']):.3f}")
+            st.metric("Free Throw %", f"{safe_float(season_stats['ft_pct']) * 100:.1f}%")
         
         with col4:
             st.metric("Minutes per Game", f"{parse_minutes(season_stats['min']):.1f}")
@@ -1170,6 +1172,8 @@ else:
         # Recent games table
         display_games = games_df[['date', 'pts', 'reb', 'ast', 'fg_pct', 'fg3m', 'min']].copy()
         display_games['date'] = display_games['date'].dt.strftime('%m/%d')
+        # Convert FG% to percentage format
+        display_games['fg_pct'] = display_games['fg_pct'] * 100
         display_games.columns = ['Date', 'PTS', 'REB', 'AST', 'FG%', '3PM', 'MIN']
         st.dataframe(display_games, use_container_width=True)
     
@@ -1658,7 +1662,7 @@ if st.session_state.comparison_data and st.session_state.player_data:
             st.metric("PPG", f"{stats1['pts']:.1f}")
             st.metric("RPG", f"{stats1['reb']:.1f}")
             st.metric("APG", f"{stats1['ast']:.1f}")
-            st.metric("FG%", f"{stats1['fg_pct']:.3f}")
+            st.metric("FG%", f"{stats1['fg_pct'] * 100:.1f}%")
     
     with col2:
         st.subheader(f"{player2['first_name']} {player2['last_name']}")
@@ -1667,18 +1671,23 @@ if st.session_state.comparison_data and st.session_state.player_data:
             st.metric("PPG", f"{stats2['pts']:.1f}")
             st.metric("RPG", f"{stats2['reb']:.1f}")
             st.metric("APG", f"{stats2['ast']:.1f}")
-            st.metric("FG%", f"{stats2['fg_pct']:.3f}")
+            st.metric("FG%", f"{stats2['fg_pct'] * 100:.1f}%")
     
     # Comparative bar chart
     if player1_data['season_stats'] and player2_data['season_stats']:
         comparison_stats = ['pts', 'reb', 'ast', 'fg_pct', 'fg3_pct']
         
+        # Convert percentages to proper format (multiply by 100)
+        def get_stat_value(stats, stat):
+            val = stats[stat]
+            return val * 100 if stat in ['fg_pct', 'fg3_pct'] else val
+        
         fig = go.Figure(data=[
             go.Bar(name=f"{player1['last_name']}", x=comparison_stats, 
-                   y=[player1_data['season_stats'][stat] for stat in comparison_stats],
+                   y=[get_stat_value(player1_data['season_stats'], stat) for stat in comparison_stats],
                    marker_color='#1f77b4'),
             go.Bar(name=f"{player2['last_name']}", x=comparison_stats,
-                   y=[player2_data['season_stats'][stat] for stat in comparison_stats],
+                   y=[get_stat_value(player2_data['season_stats'], stat) for stat in comparison_stats],
                    marker_color='#ff7f0e')
         ])
         
