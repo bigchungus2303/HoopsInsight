@@ -672,6 +672,79 @@ with st.sidebar:
     
     st.divider()
     
+    # User Guide - How to use the app
+    with st.expander("📚 Quick Start Guide"):
+        st.markdown("""
+### 🎯 Three Main Features
+
+1. **📊 Player Analysis** - Next game predictions
+2. **📅 Season Report** - Historical analysis  
+3. **📈 Prediction History** - Track accuracy
+
+---
+
+### 📊 Player Analysis
+
+**Step 1:** Search player below  
+**Step 2:** Choose season & type  
+**Step 3:** Click "Load Player Data"  
+**Step 4:** View predictions section
+
+**Optional:**
+- Adjust thresholds in Advanced Settings
+- Filter by opponent team
+- Compare with another player
+
+---
+
+### 📅 Season Report
+
+**Step 1:** Click "📅 Season Report" above  
+**Step 2:** Search player independently  
+**Step 3:** Analyze stats, trends, anomalies  
+**Step 4:** Filter by date range if needed
+
+---
+
+### 📈 Prediction History
+
+**Save:** Click "💾 Save Predictions" after viewing  
+**Track:** Navigate to Prediction History  
+**Verify:** Enter actual results after games
+
+---
+
+### 💡 Tips
+
+- **Favorites:** Click ⭐ to save players
+- **Thresholds:** Set betting lines (e.g., 25.5)
+- **Alpha (α):** Lower = recent form, Higher = long-term
+- **Export:** Download as CSV/JSON
+- **Opponents:** Filter by specific teams
+
+---
+
+### ❓ FAQ
+
+**Q: What do percentages mean?**  
+Probability of exceeding threshold based on history
+
+**Q: Regular Season vs Playoffs?**  
+Use same type as upcoming game
+
+**Q: Best alpha value?**  
+Start with 0.85 (default), lower if hot/cold matters
+
+**Q: How many games analyzed?**  
+All games from selected season (up to 100)
+
+---
+
+**Need help?** Use 💬 Feedback button (top right)
+        """, unsafe_allow_html=True)
+    
+    st.divider()
+    
     st.subheader("Player Search")
     
     st.divider()
