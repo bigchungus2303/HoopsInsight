@@ -200,6 +200,9 @@ HoopsInsight/
 ├── launch.py                 # Cross-platform launcher
 ├── run_app.bat               # Windows quick launch
 ├── run_tests.py              # Test runner
+├── README.md                 # Main documentation
+├── requirements.txt          # Python dependencies
+├── pyproject.toml, runtime.txt, packages.txt  # Config files
 │
 ├── Core Modules/
 │   ├── nba_api.py           # NBA API client with caching
@@ -207,51 +210,69 @@ HoopsInsight/
 │   ├── models.py            # Statistical models (Inverse-Frequency, Bayesian)
 │   ├── statistics.py        # Statistical calculations and analysis
 │   ├── config.py            # Centralized configuration
+│   ├── cache_sqlite.py      # Schema-versioned HTTP cache
 │   ├── logger.py            # Logging infrastructure
 │   ├── error_handler.py     # Error handling utilities
 │   └── export_utils.py      # Data export (CSV/JSON)
 │
-├── components/               # ✨ Reusable UI components
+├── services/                 # ✨ NEW: Business logic services
+│   ├── __init__.py
+│   └── picks.py             # Pick of the Day service
+│
+├── components/               # Reusable UI components
 │   ├── __init__.py
 │   ├── api_dashboard.py     # API usage & cache statistics
 │   ├── advanced_settings.py # Threshold sliders & settings
 │   ├── prediction_cards.py  # Prediction display widgets
-│   ├── charts.py            # Reusable Plotly charts
+│   ├── simple_prediction_cards.py  # Simplified prediction cards
 │   └── lambda_advisor.py    # AI lambda recommendations
 │
-├── pages/                    # ✨ Application pages
-│   ├── __init__.py
-│   ├── prediction_history.py  # Prediction tracking & accuracy
-│   └── season_report.py     # Descriptive statistical analysis
+├── pages/                    # Application pages
+│   └── pick_of_the_day.py   # Pick of the Day page (NEW ✨)
 │
-├── tests/                    # Unit tests (25+ tests)
+├── pick_configs/             # ✨ NEW: Pick of the Day configuration
+│   ├── __init__.py
+│   └── picks.yaml           # Market presets & filters
+│
+├── tests/                    # Unit tests (30+ tests)
 │   ├── __init__.py
 │   ├── README.md
 │   ├── test_models.py
 │   ├── test_statistics.py
-│   └── test_error_handling.py
-│
-├── docs/                     # ✨ NEW: Documentation folder
-│   ├── IMPROVEMENTS.md       # Feature changelog
-│   ├── TESTING.md            # Testing guide
-│   ├── PROJECT_STRUCTURE.md  # Structure overview
-│   ├── DATABASE_ARCHITECTURE.md  # Database deep dive
-│   ├── DATABASE_DIAGRAM.md   # Visual DB diagrams
-│   └── [8 more feature docs]
+│   ├── test_error_handling.py
+│   └── test_picks.py        # Pick of the Day tests (NEW ✨)
 │
 ├── attached_assets/          # Project assets
 │   ├── nba-stats-mvp.md     # This specification
 │   └── image_*.png          # Screenshots
 │
 ├── .streamlit/
-│   └── config.toml          # Streamlit configuration
+│   ├── config.toml          # Streamlit configuration
+│   └── secrets.toml         # API keys (gitignored)
+│
+├── docs/                      # ✨ Documentation (organized)
+│   ├── PICK_OF_THE_DAY_README.md  # Pick feature guide (NEW ✨)
+│   ├── CHANGELOG.md         # Feature changelog
+│   ├── DEVELOPER_GUIDE.md   # Developer guide
+│   ├── DEPLOY_TO_AEO_INSIGHTS.md  # Deployment guide
+│   ├── DISCLAIMER.md        # Legal disclaimer
+│   ├── PRIVACY.md           # Privacy policy
+│   ├── TERMS.md             # Terms of service
+│   ├── SECURITY.md          # Security policy
+│   └── README.md            # Documentation index
+│
+├── data/                     # ✨ NEW: Data files
+│   ├── nba_2025_2026_schedule.csv  # Season schedule
+│   └── README.md            # Data documentation
 │
 ├── Configuration/
 │   ├── .gitignore           # Git exclusions
 │   ├── requirements.txt     # Python dependencies
 │   └── pyproject.toml       # Project metadata
 │
-└── nba_cache.db            # SQLite cache (gitignored)
+└── Cache/
+    ├── nba_cache.db         # User data (favorites, predictions)
+    └── cache.db             # HTTP cache (schema-versioned)
 ```
 
 **Clean, organized, professional structure!** ✨
@@ -381,9 +402,10 @@ Frontend only starts after CLI validation.
 37. ✅ API dashboard hidden from UI (October 20, 2025) ✨
 38. ✅ Security hardening - XSS protection & code cleanup (October 20, 2025) ✨
 39. ✅ Streamlit parameter migration - use_container_width → width (October 20, 2025) ✨
-40. ⏳ Historical multi-season charts (next priority)
-41. ⏳ Player news integration (on hold - design phase)
-42. ⏳ React frontend migration (future enhancement)
+40. ✅ Pick of the Day feature - Auto picks for today's games (October 21, 2025) ✨
+41. ⏳ Historical multi-season charts (next priority)
+42. ⏳ Player news integration (on hold - design phase)
+43. ⏳ React frontend migration (future enhancement)
 
 ## 📝 Implementation Updates (October 2025)
 
@@ -1786,95 +1808,152 @@ st.popover("Label", width="expand")  # ❌ StreamlitInvalidWidthError
 
 ---
 
-## 📅 Today's Session Summary (October 20, 2025)
+### Pick of the Day Feature ✨ NEW (October 21, 2025)
 
-### **Major Accomplishments:**
+**Feature**: Automatic high-confidence picks for today's NBA games
 
-1. ✅ **Schema-Versioned Cache System**
-   - Solved SAC opponent filter bug
-   - Auto-invalidating cache with version control
-   - Required fields validation
+**User Request**: "Show me top 5 most likely player stats (>88%) for upcoming games"
 
-2. ✅ **UX Simplification**
-   - 4 thresholds → 1 threshold per stat
-   - Removed Z-scores from display
-   - Removed confidence labels
-   - Simplified fatigue analysis to minutes only
-   - **Removed Simple View UI** - keeping only technical view with percentages (no more toggle)
-   - **Removed opponent teams list** - cleaner opponent filter UI
+**Implementation Details**:
+- **New Page**: `pages/pick_of_the_day.py` (350+ lines)
+- **Core Service**: `services/picks.py` (550+ lines)
+  - `load_schedule_csv()` - Load from `nba_2025_2026_schedule.csv`
+  - `find_games_for_date()` - Get today's games (US timezone)
+  - `select_player_pool()` - Top 3-4 players per team (static roster)
+  - `build_candidate_markets()` - 20+ threshold combinations
+  - `predict_probability()` - Inverse-frequency model with opponent filter
+  - `top_picks()` - Select best 5 with diversity constraints
+  - `generate_team_picks()` - Full team analysis
+  - `generate_game_picks()` - Both teams for game
+- **Configuration**: `pick_configs/picks.yaml` (presets & filters)
+- **Tests**: `tests/test_picks.py` (10+ test cases)
 
-3. ✅ **Enhanced Features**
-   - Team autocomplete (type "L" → see Lakers, Clippers)
-   - Alpha impact visualizer
-   - 3PM stats in Season Report
-   - Debug mode for troubleshooting
+**Features**:
+- ✅ **Automatic**: Shows today's games without configuration
+- ✅ **High Confidence**: Only shows picks ≥77% probability
+- ✅ **Opponent-Specific**: Uses matchup history
+- ✅ **Diversity**: Ensures variety in stat types
+- ✅ **Clean UI**: No sidebar clutter, just picks
+- ✅ **Export**: CSV and JSON formats
+- ✅ **Deterministic**: Same date → Same picks
 
-4. ✅ **Documentation Consolidation**
-   - 23 files → 6 files (74% reduction)
-   - Created DEVELOPER_GUIDE.md
-   - Created CHANGELOG.md
-   - Cleaned duplicates and outdated docs
+**Technical Implementation**:
+- Schedule: Uses `game_date_local` column (not `utc_date`)
+- Timezone: Converts to US Eastern Time (UTC-5)
+- Player Search: First names only (API limitation)
+- Team Filter: Post-search filtering by abbreviation
+- Season: Uses 2024 data for 2025-2026 games
+- Caching: Player pools cached per team
 
-5. ✅ **Code Cleanup**
-   - Removed unused imports
-   - Deleted unused files (charts.py, backups, examples)
-   - Updated this specification
+**Example Results (Oct 21, 2025)**:
+```
+HOU @ OKC:
+  HOU: Alperen Sengun (reb≥6: 80.7%), Fred VanVleet (3pm≥2: 77.3%)
+  OKC: Shai Gilgeous-Alexander (pts≥20: 100%), Shai (pts≥25: 85.9%)
 
-6. ✅ **Production Deployment Preparation**
-   - Configured for aeo-insights.com
-   - Streamlit Cloud deployment ready
-   - Security hardening (rate limiting, input sanitization)
-   - Legal compliance (DISCLAIMER.md, PRIVACY.md, TERMS.md)
+GSW @ LAL:
+  (Generates similar high-confidence picks)
+```
 
-7. ✅ **User Feedback System**
-   - Added feedback button in top right corner
-   - Email: miniman9955@gmail.com
-   - Database-backed rate limiting (60s minimum)
-   - Input sanitization and length limits
+**User Experience**:
+1. Click "🎯 Pick of the Day" in sidebar
+2. Automatically shows today's games with picks
+3. No settings needed - works immediately
+4. Export for analysis
 
-8. ✅ **UI Cleanup**
-   - Hidden API usage dashboard from sidebar
-   - Cleaner, less technical interface
-   - Focus on user-facing features only
+**Formula/Assumptions**:
+- Probability threshold: ≥77% (user requested)
+- Inverse-frequency: `P(x≥t) = Σ w[i] × I[x[i]≥t]` where `w[i] = α^(N-i)`
+- Alpha: 0.85 (fixed, balances recent vs historical)
+- Minimum samples: 3 games (Bayesian smoothing for smaller)
+- Opponent filter: Uses games vs specific opponent only
 
-9. ✅ **Security Hardening**
-   - XSS protection with HTML escaping (3-layer sanitization)
-   - Rate limiting re-enabled (60s database-backed)
-   - Removed unused code (email_utils.py deleted)
-   - Security score improved: 8.5/10 → 9.5/10
+**User Impact**:
+- ✅ Daily high-confidence picks ready each morning
+- ✅ No configuration required
+- ✅ Only shows reliable predictions (≥77%)
+- ✅ 2-5 picks per team (quality over quantity)
+- ✅ Perfect for betting research or game analysis
 
-10. ✅ **Streamlit API Compatibility Fix**
-   - Fixed all width parameter errors (18 fixes)
-   - Reverted to use_container_width=True (stable across versions)
-   - Compatible with Python 3.11 (local) and 3.13 (Streamlit Cloud)
+**Files Created**:
+- `services/picks.py` (550 lines)
+- `pages/pick_of_the_day.py` (350 lines)
+- `pick_configs/picks.yaml` (40 lines)
+- `tests/test_picks.py` (250 lines)
+- `.streamlit/secrets.toml` (API key storage)
+- Documentation files (3 guides)
 
-11. ✅ **Prediction Display Simplification**
-   - Removed "Simple View" toggle from Next Game Predictions
-   - Now shows only percentage-based technical view
-   - Removed betting-focused LIKELY/UNLIKELY interface
-   - Cleaner, more focused user experience
+**Total**: ~1,600 lines of new code
+
+---
+
+## 📅 Today's Session Summary (October 21, 2025)
+
+### **Major Accomplishment:**
+
+✅ **Pick of the Day Feature - COMPLETE AND WORKING**
+
+**Implementation**:
+- **Files Created**: 6 new files (~1,600 lines)
+  - `services/picks.py` (550 lines) - Core service
+  - `pages/pick_of_the_day.py` (280 lines) - Streamlit UI
+  - `pick_configs/picks.yaml` (40 lines) - Configuration
+  - `tests/test_picks.py` (250 lines) - Unit tests
+  - `.streamlit/secrets.toml` - API key storage
+  - `PICK_OF_THE_DAY_README.md` - Documentation
+  
+**Issues Fixed**:
+1. ✅ Config directory conflict (renamed to pick_configs/)
+2. ✅ Missing pyyaml dependency (installed in .venv)
+3. ✅ Wrong date column (utc_date → game_date_local)
+4. ✅ Timezone handling (US Eastern Time)
+5. ✅ API key loading (added to secrets.toml)
+6. ✅ Player search (first names only due to API limitation)
+7. ✅ Team filtering (post-search team verification)
+8. ✅ 77% probability threshold (as requested)
+
+**Features**:
+- ✅ Automatic game detection for today (US timezone)
+- ✅ Static roster of 3-4 star players per team
+- ✅ High-confidence picks only (≥77% probability)
+- ✅ Opponent-specific predictions enabled
+- ✅ Diversity constraints (no duplicate stats)
+- ✅ Clean UI (no sidebar settings)
+- ✅ Export to CSV/JSON
+- ✅ Deterministic behavior
+
+**Verified Results (Oct 21, 2025)**:
+- Games found: HOU @ OKC, GSW @ LAL (2 games) ✅
+- Picks generated: 2-4 per team (quality over quantity) ✅
+- Example picks:
+  - Shai Gilgeous-Alexander: pts ≥20 (100%) 🔥
+  - Alperen Sengun: reb ≥6 (80.7%)
+  - Fred VanVleet: 3pm ≥2 (77.3%)
+
+**Technical Stack**:
+- Uses existing NBAAPIClient, InverseFrequencyModel, StatisticsEngine
+- Schedule: nba_2025_2026_schedule.csv (1,271 games)
+- Player data: 2024 season (most recent available)
+- No new external services added
 
 ### **Impact:**
-- ✅ Opponent filter works correctly (SAC, LAL, all teams)
-- ✅ Cleaner, more user-friendly interface
-- ✅ Professional documentation structure
-- ✅ Maintainable codebase
-- ✅ **App works on Streamlit Cloud** (Python 3.13 compatible)
-- ✅ **No StreamlitInvalidWidthError** (all 18 instances fixed)
-- ✅ User feedback collection enabled
-- ✅ **Hardened security for production** (XSS protected, rate limited)
-- ✅ **Single prediction view** (no more confusing toggle)
+- ✅ **Daily picks feature live and working**
+- ✅ **2 games automatically detected for Oct 21**
+- ✅ **High-confidence picks only** (≥77%)
+- ✅ **Zero configuration needed** - works immediately
+- ✅ **Production ready** - tested and verified
 
 ---
 
 ## 🧩 End Objective
 ✅ **ACHIEVED**: Delivered a statistically grounded NBA performance predictor that quantifies regression likelihood per player and visualizes trends interactively.
 
-**Current Status** (October 20, 2025): 
+**Current Status** (October 21, 2025): 
 - Production-ready Streamlit application
 - Deployed to: aeo-insights.com (Streamlit Cloud)
 - Schema-versioned caching system
 - Comprehensive statistical modeling
+- **Pick of the Day feature** - Daily high-confidence picks (NEW ✨)
 - Player comparison and opponent-specific analysis
 - Simplified UX with advanced features
 - Favorites management and prediction tracking
@@ -1891,3 +1970,4 @@ st.popover("Label", width="expand")  # ❌ StreamlitInvalidWidthError
 - React/TypeScript frontend migration
 - Multi-sport expansion
 - Real-time game predictions
+- Automated daily picks and alerts

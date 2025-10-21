@@ -16,7 +16,7 @@ from statistics import StatisticsEngine
 class PickOfTheDayService:
     """Service for generating Pick of the Day predictions"""
     
-    def __init__(self, api_client: NBAAPIClient, schedule_path: str = "nba_2025_2026_schedule.csv"):
+    def __init__(self, api_client: NBAAPIClient, schedule_path: str = "data/nba_2025_2026_schedule.csv"):
         self.api_client = api_client
         self.schedule_path = schedule_path
         self.model = InverseFrequencyModel()

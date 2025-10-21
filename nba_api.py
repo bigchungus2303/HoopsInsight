@@ -25,7 +25,12 @@ class NBAAPIClient:
         # Try Streamlit secrets first, then environment variable
         try:
             import streamlit as st
-            self.api_key = st.secrets.get("api", {}).get("nba_api_key", "") or os.getenv("NBA_API_KEY", "")
+            # Try both secret formats: root level and nested under [api]
+            self.api_key = (
+                st.secrets.get("NBA_API_KEY", "") or  # Root level
+                st.secrets.get("api", {}).get("nba_api_key", "") or  # Nested
+                os.getenv("NBA_API_KEY", "")  # Environment variable
+            )
         except:
             self.api_key = os.getenv("NBA_API_KEY", "")
         
