@@ -128,8 +128,6 @@ def show_pick_of_the_day_page(api_client: NBAAPIClient):
             for i, game in enumerate(games):
                 progress_bar.progress((i + 1) / len(games))
                 
-                st.caption(f"Processing {game['visitor_abbr']} @ {game['home_abbr']}...")
-                
                 game_picks = service.generate_game_picks(
                     game,
                     preset=preset,
