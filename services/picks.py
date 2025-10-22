@@ -509,7 +509,7 @@ class PickOfTheDayService:
     
     def top_picks(self, predictions: List[Dict], n: int = 5, 
                  require_distinct: bool = True, min_gap: float = 0.05, 
-                 min_probability: float = 0.77) -> List[Dict]:
+                 min_probability: float = 0.70) -> List[Dict]:
         """
         Select top N picks with diversity constraints
         
@@ -518,7 +518,7 @@ class PickOfTheDayService:
             n: Number of picks to return
             require_distinct: Require distinct stat types
             min_gap: Minimum confidence gap for duplicate stats
-            min_probability: Minimum probability threshold (default 0.77 = 77%)
+            min_probability: Minimum probability threshold (default 0.70 = 70%)
             
         Returns:
             List of top N predictions
